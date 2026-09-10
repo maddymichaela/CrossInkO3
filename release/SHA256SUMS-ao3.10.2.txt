@@ -1,0 +1,2 @@
+ca8d9254b3f2da9bab6a3e4fdac123ab2a23aef644ee81df9e73bf83cc4efd8f  release/CrossInk-AO3-v1.5.0-ao3.10.2-x3-x4.bin
+4ab4a5a2af646ecc11d22c95460e2f73e15b32667670700139b9688dce724ee8  release/CrossInk-AO3-v1.5.0-ao3.10.2-source.zip

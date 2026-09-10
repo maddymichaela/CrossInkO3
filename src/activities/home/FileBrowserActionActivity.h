@@ -25,11 +25,13 @@ enum class FileBrowserAction : int {
   EpubRenderMode = 13,
   ResetReaderSettings = 14,
   SendNearby = 15,
-  Ao3Status = 16,
-  PinToHome = 17,
-  UnpinFromHome = 18,
-  MoveAo3ToRead = 19,
-  RestoreAo3Original = 20,
+  PinBootFavorite = 16,
+  UnpinBootFavorite = 17,
+  Ao3Status = 18,
+  PinToHome = 19,
+  UnpinFromHome = 20,
+  MoveAo3ToRead = 21,
+  RestoreAo3Original = 22,
 };
 
 class FileBrowserActionActivity final : public Activity {
@@ -41,7 +43,8 @@ class FileBrowserActionActivity final : public Activity {
   };
 
   FileBrowserActionActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string title,
-                            std::vector<MenuItem> items, bool ignoreInitialConfirmRelease = false);
+                            std::vector<MenuItem> items, bool ignoreInitialConfirmRelease = false,
+                            bool ignoreOpeningTouchRelease = true);
 
   void onEnter() override;
   void loop() override;
@@ -55,6 +58,7 @@ class FileBrowserActionActivity final : public Activity {
   std::vector<std::string> optionLabels;
   OptionPopup optionPopup;
   bool ignoreConfirmRelease = false;
+  bool ignoreOpeningTouchRelease = true;
   bool ignoreTouchRelease = false;
   bool selectionMade = false;
 };
