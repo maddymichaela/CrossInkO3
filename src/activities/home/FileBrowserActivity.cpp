@@ -64,7 +64,7 @@ fui::BitmapRef ao3StatusIcon(const Ao3DisplayStatus status, const int size) {
       case Ao3DisplayStatus::Waiting:
         return fui::bitmapFromIcon(icon_history_32);
       case Ao3DisplayStatus::UpdateAvailable:
-        return fui::bitmapFromIcon(icon_sun_32);
+        return fui::bitmapFromIcon(icon_radio_tower_32);
       case Ao3DisplayStatus::Finished:
         return fui::bitmapFromIcon(icon_book_marked_32);
     }
@@ -77,17 +77,13 @@ fui::BitmapRef ao3StatusIcon(const Ao3DisplayStatus status, const int size) {
     case Ao3DisplayStatus::Waiting:
       return fui::bitmapFromIcon(icon_history_24);
     case Ao3DisplayStatus::UpdateAvailable:
-      return fui::bitmapFromIcon(icon_sun_24);
+      return fui::bitmapFromIcon(icon_radio_tower_24);
     case Ao3DisplayStatus::Finished:
       return fui::bitmapFromIcon(icon_book_marked_24);
   }
   return {};
 }
 
-bool isMacOSMetadataEntry(std::string_view filename) {
-  return filename.rfind("._", 0) == 0 || filename == ".DS_Store" || filename == ".Spotlight-V100" ||
-         filename == ".Trashes" || filename == ".fseventsd";
-}
 bool equalsIgnoreCase(std::string_view a, std::string_view b) {
   if (a.length() != b.length()) return false;
   for (size_t i = 0; i < a.length(); ++i) {

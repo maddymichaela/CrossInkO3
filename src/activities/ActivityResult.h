@@ -128,10 +128,10 @@ struct ClippingJumpResult {
 };
 
 using ResultVariant = std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult,
-                                   IntervalResult, OptionSelectionResult, PageResult, ProgressChangeResult, SyncResult,
-                                   NetworkModeResult, FootnoteResult, BookmarkResult, FileBrowserActionResult,
-                                   FilePathResult, FolderListResult, WordResult, ReadingStatsResult, ClippingResult,
-                                   DictionaryClippingRequest, ClippingJumpResult, FrontlightPanelResult>;
+                                   IntervalResult, OptionSelectionResult, PageResult, NetworkModeResult, FootnoteResult,
+                                   BookmarkResult, FileBrowserActionResult, FilePathResult, FolderListResult, WordResult,
+                                   ReadingStatsResult, ClippingResult, DictionaryClippingRequest, ClippingJumpResult,
+                                   FrontlightPanelResult>;
 
 struct ActivityResult {
   bool isCancelled = false;
