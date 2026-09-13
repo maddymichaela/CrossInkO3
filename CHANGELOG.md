@@ -1,8 +1,34 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11] - 2026-09-13
+
+### Changed
+
+- Rebased the AO3 fork from CrossInk 1.5.0 to CrossInk 1.5.1 while retaining the AO3 Library, indexing, content-rating filters, fic statuses, Home pinning, original-folder archiving, series continuation, and on-device chapter updates.
+- Adopted CrossInk 1.5.1's FreeInk SDK, X4 Pro/X4 Classic support, touch reader menu, input handling, EPUB rendering and memory improvements, Wi-Fi password visibility, KOReader Sync fixes, sleep behavior, and board-aware update validation.
+- Kept AO3's cache extension at book-cache version 10. Existing version 10 AO3 caches remain current; stock CrossInk v1.5.1 caches at version 9 rebuild once after upgrade while reader progress and user state remain stored separately.
+
 ### Fixed
 
-- AO3 series continuation now finds following works through the compact index instead of opening every cached EPUB sidecar. Opening a suggested book releases the old rendered section and shows immediate loading feedback while reader state is finalized.
+- Removed obsolete activity-result alternatives left behind by the v1.5.1 reader-menu migration.
+- Updated the File Browser's New Chapter Available marker to use the v1.5.1 icon set and removed duplicate metadata-file filtering introduced by the merge.
+- Preserved AO3 return-to-library navigation and series suggestions in the v1.5.1 lazy end-of-book flow.
+
+## [v1.5.0-ao3.10.3] - superseded
+
+- This internal compatibility milestone was folded into `v1.5.1-ao3.11`. It was never tagged or distributed as firmware, so there is no `ao3.10.3` binary to flash.
+
+## [v1.5.0-ao3.10.2] - 2026-09-13
+
+### Fixed
+
+- AO3 series continuation now finds following works through the compact index instead of opening every cached EPUB sidecar.
+- Opening a suggested series work releases the old rendered section and displays loading feedback before the next EPUB opens.
+
+## AO3 Integration History Through v1.5.0-ao3.10.2
+
+### Fixed
+
 - AO3 Content Ratings is now a multi-select filter: choosing one rating shows only that rating, choosing several shows their union, and clearing the selections restores All ratings.
 - File Browser now labels every EPUB as Unread, Reading, or Finished, while indexed AO3 works retain Waiting and New Chapter states. Direct sidecar reads and small AO3 summary/page caches avoid repeated EPUB setup and full cache-directory scans when returning from readers and library screens.
 - AO3 indexing batches can now be set to 10, 20, 30, 40, or 50 works. Sort & Filter uses compact CrossInk-style lists, keeps Apply as a dark button without a second row highlight, and can include or exclude G, T, M, E, or Not Rated works.
