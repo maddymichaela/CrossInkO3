@@ -125,12 +125,12 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 | Version | Status | Highlights |
 |---|---|---|
 | `1.5.1-ao3.11` | Current | Updates the base to CrossInk 1.5.1 while retaining the complete AO3 library, status, pinning, archive, series, and update workflow. Adds X4 Pro/X4 Classic support from upstream, the newer touch reader menu, visible Wi-Fi password entry, and the v1.5.1 KOReader Sync, EPUB, input, sleep, and memory fixes. |
-| `1.5.0-ao3.10.3` | Folded into 11 | Internal validation milestone for the upstream merge. It was not tagged or published as flashable firmware; its compatibility work ships in `ao3.11`. |
+| `1.5.0-ao3.10.3` | Superseded notes-only release | Records the transition from the 1.5.0 line to the upstream merge. Its tag references the last validated 1.5.0 source, but it has no distinct firmware asset; the completed compatibility work ships in `ao3.11`. |
 | `1.5.0-ao3.10.2` | Previous stable | Speeds AO3 series continuation by reading the compact index instead of opening every cached EPUB sidecar, and releases the previous rendered section before opening the selected next work. |
 | `1.5.0-ao3.10.1` | Previous hotfix | Keeps AO3 Sort & Filter rows evenly spaced and leaves the relationship guidance visible before a fandom is selected. |
 | `1.5.0-ao3.10` | Previous feature release | Adds AO3-aware move-to-Read and restore behavior with original nested-folder preservation. |
 
-Version 10 release files are retained in the local `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11` is the recommended build; `ao3.10.3` has no binary because it was never a public firmware release.
+Version 10 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11` is the recommended build; the `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
 
 ## CrossInk Highlights
 

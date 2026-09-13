@@ -14,9 +14,10 @@
 - Updated the File Browser's New Chapter Available marker to use the v1.5.1 icon set and removed duplicate metadata-file filtering introduced by the merge.
 - Preserved AO3 return-to-library navigation and series suggestions in the v1.5.1 lazy end-of-book flow.
 
-## [v1.5.0-ao3.10.3] - superseded
+## [v1.5.0-ao3.10.3] - 2026-09-13
 
-- This internal compatibility milestone was folded into `v1.5.1-ao3.11`. It was never tagged or distributed as firmware, so there is no `ao3.10.3` binary to flash.
+- Added a notes-only historical Release entry for the transition from the CrossInk 1.5.0 line to the 1.5.1 merge.
+- The tag references the final validated 1.5.0 source and has no distinct firmware asset. Compatibility work was folded into `v1.5.1-ao3.11`, which is the version to flash.
 
 ## [v1.5.0-ao3.10.2] - 2026-09-13
 
