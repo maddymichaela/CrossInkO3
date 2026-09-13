@@ -20,7 +20,7 @@ The prebuilt AO3 release binary is currently produced for the X3/X4 target. Stic
 | [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader) | Original open-source reader firmware and hardware foundation. |
 | [CrossInk](https://github.com/uxjulia/CrossInk) | Base codebase: modern reader, typography, statistics, themes, bookmarks, clippings, sync, controls, and file management. |
 | [AvesO3](https://github.com/SiliconAves/AvesO3) | Reference implementation and design inspiration for the AO3 library, indexing, fic statuses, pinning, and chapter updates. |
-| [This fork](https://github.com/maddymichaela/CrossInk) | Selectively ports and adapts the AO3 features to current CrossInk while preserving CrossInk behavior. |
+| [This fork](https://github.com/maddymichaela/CrossInkO3) | Selectively ports and adapts the AO3 features to current CrossInk while preserving CrossInk behavior. |
 
 ## What's Different From CrossPoint
 
@@ -173,7 +173,7 @@ The AO3 subsystem sits on top of the existing CrossInk feature set:
 - Reading [progress sync](./docs/nearby-position-sync.md) between two CrossInk devices.
 - Added customizable Auto Page Turn Interval (anything between 5-120 seconds).
 - Added ability to view Recent Books as a 3x3 grid view.
-- To view a more detailed list for each version, visit this fork's [releases](https://github.com/maddymichaela/CrossInk/releases) page.
+- To view a more detailed list for each version, visit this fork's [releases](https://github.com/maddymichaela/CrossInkO3/releases) page.
 
 ---
 
@@ -230,7 +230,7 @@ CrossInk runs on an ESP32-C3 with limited RAM, so very large folders or complex 
 
 The fastest way to install CrossInk is by using [Inky](https://inky.crossink.dev/#flash-tools), CrossInk's web companion app.
 
-Download the X3/X4 `firmware-*.bin` from [this fork's releases](https://github.com/maddymichaela/CrossInk/releases), then flash it with the web installer or command line. The current boot screen should report `1.5.1-ao3.11`, rather than `dev+main`.
+Download the X3/X4 `firmware-*.bin` from [this fork's releases](https://github.com/maddymichaela/CrossInkO3/releases), then flash it with the web installer or command line. The current boot screen should report `1.5.1-ao3.11`, rather than `dev+main`.
 
 See [Installation](./docs/installation.md) for step-by-step flashing and revert instructions.
 
