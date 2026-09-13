@@ -1,5 +1,17 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.1] - 2026-09-13
+
+### Fixed
+
+- Changed **Settings > Check for Firmware Updates** to fetch releases from `maddymichaela/CrossInkO3` instead of upstream CrossInk.
+- Added board-safe matching for both canonical `firmware-<board>...bin` files and this fork's `CrossInk-AO3-...-<board>.bin` release assets.
+- Made firmware comparison understand numeric AO3 suffixes, so releases such as `ao3.11.1` and `ao3.12` are detected when the CrossInk base version is unchanged.
+
+### Upgrade Note
+
+- `ao3.11` and older builds still use the upstream update feed, so `ao3.11.1` must be flashed manually once. Firmware checks from `ao3.11.1` onward use this fork's releases.
+
 ## [v1.5.1-ao3.11] - 2026-09-13
 
 ### Changed
