@@ -7,6 +7,10 @@
 - Added **Settings > System > Read Folder**, using CrossInk's directory picker to select the finished-book destination shared by ordinary EPUBs and AO3 fics.
 - Added an on-device notice that the selected Read folder and its subfolders are excluded from end-of-book recommendations.
 
+### Fixed
+
+- Restored the **Read Folder** picker under **Settings > System** so the selectable finished-book destination is visible on device.
+
 ### Changed
 
 - Normal completed EPUB moves, AO3 original-path-preserving archive moves, and moved-book bookmark recovery now use the selected Read folder instead of a hardcoded `/Read` path.
