@@ -1,5 +1,19 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.2] - 2026-09-14
+
+### Fixed
+
+- Kept reader-to-Home returns responsive by updating cached Waiting/New Chapter totals directly instead of rescanning every AO3 sidecar after a status change.
+- Made **Re-read indexed AO3 EPUBs** enumerate only known AO3 works inside the selected folder, stop each sidecar scan when the configured batch is full, and avoid invalidating Home totals when an existing index record is refreshed.
+- Cached compact AO3 sidecar locators in about 3.2 KB of RAM, avoiding repeated cache-directory scans while resolving visible library entries and same-series suggestions.
+- Released the end-of-book suggestion model before opening the selected next work, leaving more contiguous memory available to the normal CrossInk EPUB loader.
+- Preserved cached Home totals when a finished AO3 work moves to `/Read`, because its move changes neither the library count nor its AO3 reading state.
+
+### Compatibility
+
+- The AO3 compact index and EPUB cache formats are unchanged. Existing libraries do not require deletion or reindexing after this update.
+
 ## [v1.5.1-ao3.11.1] - 2026-09-13
 
 ### Fixed
