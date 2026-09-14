@@ -74,6 +74,7 @@
 #include "util/BookCacheUtils.h"
 #include "util/Ao3ArchiveHelper.h"
 #include "util/BookMoveUtils.h"
+#include "util/ReadFolderPolicy.h"
 #include "util/Dictionary.h"
 #include "util/ScreenshotUtil.h"
 
@@ -1298,24 +1299,14 @@ class ScopedReaderSettingsRestore {
   EpubReaderActivity::ReaderSettingsSnapshot snapshot;
 };
 
-// SD card folder finished books are moved into. Single source of truth for the path.
-constexpr char READ_FOLDER[] = "/Read";
-
-// True if path is inside READ_FOLDER (starts with "<READ_FOLDER>/"). Non-allocating so
-// it is cheap to call from loop(), and avoids reintroducing a separate "/Read/" literal.
-bool isInReadFolder(const std::string& path) {
-  constexpr size_t n = sizeof(READ_FOLDER) - 1;  // excludes NUL
-  return path.size() > n && path.compare(0, n, READ_FOLDER) == 0 && path[n] == '/';
-}
-
-// Relocate a finished book into /Read/, then migrate path-keyed state such as
+// Relocate a finished book into the configured Read folder, then migrate path-keyed state such as
 // cache files, bookmarks, recents, and resume path.
 void moveFinishedBookToReadFolder(const std::string& srcPath, const std::string& dstPath,
                                   const std::string& oldCachePath, const std::string& title,
                                   const std::string& author) {
   LOG_INF("ERS", "Moving finished epub: %s -> %s", srcPath.c_str(), dstPath.c_str());
   if (!Storage.rename(srcPath.c_str(), dstPath.c_str())) {
-    LOG_ERR("ERS", "Failed to move finished book to '/Read' folder");
+    LOG_ERR("ERS", "Failed to move finished book to configured Read folder");
     snprintf(APP_STATE.pendingAlertTitle, sizeof(APP_STATE.pendingAlertTitle), "%s", tr(STR_MOVE_TO_READ_FAILED_TITLE));
     snprintf(APP_STATE.pendingAlertBody, sizeof(APP_STATE.pendingAlertBody), tr(STR_MOVE_TO_READ_FAILED_BODY),
              title.c_str());
@@ -1758,7 +1749,8 @@ void EpubReaderActivity::applyBookStatsEditsFromDisk() {
 void EpubReaderActivity::handleBookStatsReturn(const bool returnToReaderMenu) {
   applyBookStatsEditsFromDisk();
   completionPromptShown = stats.isCompleted;
-  if (stats.isCompleted && SETTINGS.moveFinishedToReadFolder && epub && !isInReadFolder(epub->getPath())) {
+  if (stats.isCompleted && SETTINGS.moveFinishedToReadFolder && epub &&
+      !ReadFolderPolicy::isPathInNormalizedFolder(epub->getPath(), SETTINGS.readFolder)) {
     pendingReadFolderMove = true;
   } else if (!stats.isCompleted) {
     pendingReadFolderMove = false;
@@ -2812,7 +2804,7 @@ void EpubReaderActivity::loop() {
   }
 
   // The render task is asynchronous. Prepare suggestions before an input can
-  // leave the reader and move this EPUB into /Read/, while still allocating
+  // leave the reader and move this EPUB into the configured Read folder, while still allocating
   // this UI state only when the end screen is reached.
   if (atEndOfBook) {
     RenderLock lock(*this);
@@ -2839,12 +2831,12 @@ void EpubReaderActivity::loop() {
     }
   }
 
-  // Arm the move here so any exit path relocates the book into /Read/.
+  // Arm the move here so any exit path relocates the book into the configured Read folder.
   // setBookCompleted() also arms this when the user marks a book finished before
   // the End-of-Book screen.
   if (atEndOfBook) {
     pendingReadFolderMove = SETTINGS.moveFinishedToReadFolder && !isAo3UnfinishedWork() &&
-                            !isInReadFolder(epub->getPath());
+                            !ReadFolderPolicy::isPathInNormalizedFolder(epub->getPath(), SETTINGS.readFolder);
   } else if (!stats.isCompleted) {
     pendingReadFolderMove = false;
   }
@@ -5192,7 +5184,8 @@ void EpubReaderActivity::setBookCompleted(bool isCompleted) {
     if (SETTINGS.removeReadBooksFromRecents && !RECENT_BOOKS.isPinned(epub->getPath())) {
       RECENT_BOOKS.removeByPath(epub->getPath());
     }
-    if (SETTINGS.moveFinishedToReadFolder && !isInReadFolder(epub->getPath())) {
+    if (SETTINGS.moveFinishedToReadFolder &&
+        !ReadFolderPolicy::isPathInNormalizedFolder(epub->getPath(), SETTINGS.readFolder)) {
       pendingReadFolderMove = true;
     }
     pendingAo3OriginalFolderRestore = false;

@@ -3,6 +3,7 @@
 #include <BoardConfig.h>
 #include <GfxRenderer.h>
 #include <HalGPIO.h>
+#include <HalStorage.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <WiFi.h>
@@ -35,6 +36,7 @@
 #include "SilentRestart.h"
 #include "StatusBarSettingsActivity.h"
 #include "activities/network/WifiSelectionActivity.h"
+#include "activities/home/FileBrowserActivity.h"
 #include "activities/reader/GlobalReadingStats.h"
 #include "activities/util/ConfirmationActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
@@ -49,6 +51,7 @@
 #include "fontIds.h"
 #include "util/DictionaryRegistry.h"
 #include "util/FrontlightSchedule.h"
+#include "util/ReadFolderPolicy.h"
 
 namespace fui = freeink::ui;
 
@@ -693,6 +696,37 @@ void SettingsActivity::openStringEditor(const SettingInfo& setting) {
                          });
 }
 
+void SettingsActivity::openReadFolderPicker() {
+  startActivityForResult(
+      std::make_unique<ConfirmationActivity>(renderer, mappedInput, tr(STR_READ_FOLDER),
+                                             tr(STR_READ_FOLDER_RECOMMENDATION_NOTE)),
+      [this](const ActivityResult& confirmation) {
+        if (confirmation.isCancelled) {
+          requestUpdate();
+          return;
+        }
+
+        const std::string initialFolder = ReadFolderPolicy::normalizeFolder(SETTINGS.readFolder);
+        if (!Storage.exists(initialFolder.c_str())) Storage.mkdir(initialFolder.c_str(), true);
+        startActivityForResult(
+            std::make_unique<FileBrowserActivity>(renderer, mappedInput, initialFolder,
+                                                  FileBrowserActivity::Mode::PickDirectory),
+            [this](const ActivityResult& result) {
+              const auto* selected = std::get_if<FilePathResult>(&result.data);
+              if (result.isCancelled || selected == nullptr) {
+                requestUpdate();
+                return;
+              }
+
+              const std::string folder = ReadFolderPolicy::normalizeFolder(selected->path);
+              strncpy(SETTINGS.readFolder, folder.c_str(), sizeof(SETTINGS.readFolder) - 1);
+              SETTINGS.readFolder[sizeof(SETTINGS.readFolder) - 1] = '\0';
+              SETTINGS.saveToFile();
+              requestUpdate();
+            });
+      });
+}
+
 void SettingsActivity::onEnter() {
   Activity::onEnter();
 
@@ -998,6 +1032,10 @@ void SettingsActivity::toggleCurrentSetting() {
     return;
   }
   if (setting.type == SettingType::STRING) {
+    if (setting.nameId == StrId::STR_READ_FOLDER) {
+      openReadFolderPicker();
+      return;
+    }
     openStringEditor(setting);
     return;
   }

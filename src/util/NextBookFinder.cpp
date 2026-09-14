@@ -9,6 +9,7 @@
 #include <string_view>
 
 #include "CrossPointSettings.h"
+#include "ReadFolderPolicy.h"
 
 namespace {
 constexpr size_t NAME_BUFFER_SIZE = 500;
@@ -25,6 +26,7 @@ std::vector<std::string> NextBookFinder::findNextBooks(const std::string& curren
   if (maxCount == 0 || currentBookPath.empty()) {
     return result;
   }
+  if (ReadFolderPolicy::isPathInFolder(currentBookPath, SETTINGS.readFolder)) return result;
 
   const std::string folder = FsHelpers::extractFolderPath(currentBookPath);
   const auto lastSlash = currentBookPath.find_last_of('/');

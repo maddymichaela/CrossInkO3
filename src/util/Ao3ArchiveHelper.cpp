@@ -12,11 +12,12 @@
 #include "Ao3Librarian.h"
 #include "Ao3LibraryMetadata.h"
 #include "BookMoveUtils.h"
+#include "CrossPointSettings.h"
+#include "ReadFolderPolicy.h"
 
 namespace {
 constexpr char AO3_SETTINGS_PATH[] = "/.crosspoint/ao3_settings.json";
 constexpr char ARCHIVE_RECORD_DIR[] = "/.crosspoint/ao3_archive_origins";
-constexpr char READ_FOLDER[] = "/Read";
 
 std::string trimTrailingSlashes(std::string path) {
   while (path.size() > 1 && path.back() == '/') path.pop_back();
@@ -100,7 +101,8 @@ std::string buildDestinationPath(const std::string& sourcePath) {
     relativePath = sourcePath.substr(ao3Folder.size() + 1);
   }
 
-  const std::string desired = std::string(READ_FOLDER) + "/" + archiveName + "/" + relativePath;
+  const std::string desired = ReadFolderPolicy::normalizeFolder(SETTINGS.readFolder) + "/" + archiveName + "/" +
+                              relativePath;
   const size_t slash = desired.rfind('/');
   if (slash == std::string::npos) return "";
   const std::string destinationDirectory = desired.substr(0, slash);

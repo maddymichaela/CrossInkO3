@@ -98,8 +98,10 @@ Updating intentionally overwrites the local EPUB, but the replacement flow is sa
 
 ### AO3-Aware Read Folder
 
+- **Settings > System > Read Folder** selects one finished-book destination for ordinary EPUBs and AO3 fics; existing installs continue to default to `/Read`.
+- The selected Read folder and all of its subfolders are excluded from end-of-book next-book and AO3 series recommendations. The device explains this before opening the folder picker.
 - Finished AO3 works can be moved explicitly or through CrossInk's **Move Finished Books to Read Folder** setting.
-- The path beneath the configured AO3 folder is mirrored under `/Read`, so `/AO3/Fandom/Series/book.epub` becomes `/Read/AO3/Fandom/Series/book.epub`.
+- The path beneath the configured AO3 folder is mirrored under the selected Read folder, so `/AO3/Fandom/Series/book.epub` becomes `/Finished/AO3/Fandom/Series/book.epub` when `/Finished` is selected.
 - **Restore Original Folder** recreates the original directory tree and returns the EPUB without overwriting an existing file.
 - Progress, statistics, bookmarks, clippings, Home pinning/Recents data, resume state, AO3 status, metadata, and index order follow the moved file.
 - Marking an archived AO3 fic unfinished through CrossInk's completion control restores it to its original folder.
@@ -124,7 +126,8 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 
 | Version | Status | Highlights |
 |---|---|---|
-| `1.5.1-ao3.11.2` | Current | Speeds reader-to-Home returns, AO3 metadata refresh batches, end-of-book series lookup, and next-book handoff without changing CrossInk reading behavior or the AO3 index format. |
+| `1.5.1-ao3.11.3` | Current | Adds a global selectable Read folder for normal and AO3 EPUBs and excludes its contents from end-of-book recommendations. |
+| `1.5.1-ao3.11.2` | Previous stable | Speeds reader-to-Home returns, AO3 metadata refresh batches, end-of-book series lookup, and next-book handoff without changing CrossInk reading behavior or the AO3 index format. |
 | `1.5.1-ao3.11.1` | Previous stable | Makes Settings > Check for Firmware Updates use this CrossInkO3 repository, recognize fork-style firmware asset names, and compare AO3 patch versions correctly. |
 | `1.5.1-ao3.11` | Previous stable | Updates the base to CrossInk 1.5.1 while retaining the complete AO3 library, status, pinning, archive, series, and update workflow. Adds X4 Pro/X4 Classic support from upstream, the newer touch reader menu, visible Wi-Fi password entry, and the v1.5.1 KOReader Sync, EPUB, input, sleep, and memory fixes. |
 | `1.5.0-ao3.10.3` | Superseded notes-only release | Records the transition from the 1.5.0 line to the upstream merge. Its tag references the last validated 1.5.0 source, but it has no distinct firmware asset; the completed compatibility work ships in `ao3.11`. |
@@ -132,7 +135,7 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 | `1.5.0-ao3.10.1` | Previous hotfix | Keeps AO3 Sort & Filter rows evenly spaced and leaves the relationship guidance visible before a fandom is selected. |
 | `1.5.0-ao3.10` | Previous feature release | Adds AO3-aware move-to-Read and restore behavior with original nested-folder preservation. |
 
-Version 10 and 11 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11.2` is the recommended build; the `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
+Version 10 and 11 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11.3` is the recommended build; the `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
 
 Devices running `ao3.11` or older must flash `ao3.11.1` manually once because those builds still contact the upstream CrossInk release feed. After that one-time upgrade, **Check for Firmware Updates** follows releases from this CrossInkO3 repository.
 
@@ -234,7 +237,7 @@ CrossInk runs on an ESP32-C3 with limited RAM, so very large folders or complex 
 
 The fastest way to install CrossInk is by using [Inky](https://inky.crossink.dev/#flash-tools), CrossInk's web companion app.
 
-Download the X3/X4 `.bin` from [this fork's releases](https://github.com/maddymichaela/CrossInkO3/releases), then flash it with the web installer or command line. The current boot screen should report `1.5.1-ao3.11.2`, rather than `dev+main`.
+Download the X3/X4 `.bin` from [this fork's releases](https://github.com/maddymichaela/CrossInkO3/releases), then flash it with the web installer or command line. The current boot screen should report `1.5.1-ao3.11.3`, rather than `dev+main`.
 
 See [Installation](./docs/installation.md) for step-by-step flashing and revert instructions.
 

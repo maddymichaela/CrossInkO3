@@ -1,0 +1,6 @@
+add_executable(ReadFolderPolicyTest ReadFolderPolicyTest.cpp)
+
+target_include_directories(ReadFolderPolicyTest PRIVATE ${REPO_ROOT}/src)
+target_link_libraries(ReadFolderPolicyTest PRIVATE crosspoint_test_common GTest::gtest_main)
+
+gtest_discover_tests(ReadFolderPolicyTest)

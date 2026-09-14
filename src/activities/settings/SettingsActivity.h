@@ -309,6 +309,7 @@ class SettingsActivity final : public Activity {
   void openLineHeightPicker();
   void openFrontlightScheduleTimePicker(uint16_t CrossPointSettings::* valuePtr, StrId titleId);
   void openStringEditor(const SettingInfo& setting);
+  void openReadFolderPicker();
   void rebuildSettingsLists();
   void syncQuickResumeTimeoutForSleepScreen(bool sleepScreenChanged, bool quickResumeTimeoutChanged);
   void closeRootSettings();

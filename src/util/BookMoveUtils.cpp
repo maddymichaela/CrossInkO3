@@ -9,10 +9,8 @@
 #include "ClippingStore.h"
 #include "CrossPointState.h"
 #include "RecentBooksStore.h"
-
-namespace {
-constexpr char READ_FOLDER[] = "/Read";
-}
+#include "CrossPointSettings.h"
+#include "util/ReadFolderPolicy.h"
 
 namespace BookMoveUtils {
 
@@ -20,8 +18,9 @@ std::string buildReadFolderDestination(const std::string& srcPath) {
   const size_t lastSlash = srcPath.rfind('/');
   const std::string filename = (lastSlash != std::string::npos) ? srcPath.substr(lastSlash + 1) : srcPath;
 
-  Storage.mkdir(READ_FOLDER);
-  std::string dstPath = std::string(READ_FOLDER) + "/" + filename;
+  const std::string readFolder = ReadFolderPolicy::normalizeFolder(SETTINGS.readFolder);
+  Storage.mkdir(readFolder.c_str(), true);
+  std::string dstPath = readFolder + "/" + filename;
   if (!Storage.exists(dstPath.c_str())) {
     return dstPath;
   }
@@ -31,7 +30,7 @@ std::string buildReadFolderDestination(const std::string& srcPath) {
   const std::string ext = (dotPos != std::string::npos) ? filename.substr(dotPos) : "";
   int suffix = 2;
   do {
-    dstPath = std::string(READ_FOLDER) + "/" + base + " (" + std::to_string(suffix) + ")" + ext;
+    dstPath = readFolder + "/" + base + " (" + std::to_string(suffix) + ")" + ext;
     suffix++;
   } while (Storage.exists(dstPath.c_str()) && suffix < 100);
   return dstPath;

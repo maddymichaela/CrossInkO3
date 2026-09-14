@@ -23,6 +23,7 @@
 #include "SettingsList.h"
 #include "fontIds.h"
 #include "util/FrontlightSchedule.h"
+#include "util/ReadFolderPolicy.h"
 #include "util/TwoFingerSwipe.h"
 
 void readAndValidate(FsFile& file, uint8_t& member, const uint8_t maxValue) {
@@ -584,6 +585,13 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
       value = std::clamp(value, static_cast<uint8_t>(info.valueRange.min), static_cast<uint8_t>(info.valueRange.max));
     }
     this->*(info.valuePtr) = value;
+  }
+
+  const std::string normalizedReadFolder = ReadFolderPolicy::normalizeFolder(readFolder);
+  if (normalizedReadFolder != readFolder) {
+    strncpy(readFolder, normalizedReadFolder.c_str(), sizeof(readFolder) - 1);
+    readFolder[sizeof(readFolder) - 1] = '\0';
+    needsResave = true;
   }
 
   // The old gesture setting controlled both directions. Preserve it on upgrade.

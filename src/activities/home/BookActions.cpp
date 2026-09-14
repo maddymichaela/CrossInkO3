@@ -26,6 +26,7 @@
 #include "util/BookCacheUtils.h"
 #include "util/Ao3ArchiveHelper.h"
 #include "util/BookMoveUtils.h"
+#include "util/ReadFolderPolicy.h"
 
 namespace BookActions {
 namespace {
@@ -236,7 +237,8 @@ bool toggleBookCompleted(const std::string& fullPath, const std::string& display
     if (Ao3ArchiveHelper::restoreOriginalFolder(fullPath, !SETTINGS.removeReadBooksFromRecents).empty()) {
       LOG_ERR("BookActions", "Failed to restore unfinished AO3 fic to its original folder");
     }
-  } else if (isEpub && completed && SETTINGS.moveFinishedToReadFolder && fullPath.rfind("/Read/", 0) != 0) {
+  } else if (isEpub && completed && SETTINGS.moveFinishedToReadFolder &&
+             !ReadFolderPolicy::isPathInFolder(fullPath, SETTINGS.readFolder)) {
     const std::string oldCachePath = epub.getCachePath();
     const bool ao3Fic = Ao3ArchiveHelper::isAo3Fic(fullPath);
     const std::string dstPath = ao3Fic ? Ao3ArchiveHelper::moveToReadFolder(

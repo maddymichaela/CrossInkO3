@@ -13,6 +13,9 @@
 #include <cstring>
 #include <strings.h>
 
+#include "CrossPointSettings.h"
+#include "util/ReadFolderPolicy.h"
+
 namespace {
 constexpr const char* AO3_CACHE_ROOT = "/.crosspoint";
 constexpr const char* AO3_INDEX_PATH = "/.crosspoint/ao3_library_index.bin";
@@ -1053,6 +1056,7 @@ std::vector<std::string> Ao3Librarian::findNextSeriesBooks(const std::string& ep
       continue;
     }
     const std::string path = metadata[i].filepath;
+    if (ReadFolderPolicy::isPathInFolder(path, SETTINGS.readFolder)) continue;
     if (std::find(result.begin(), result.end(), path) == result.end()) result.push_back(path);
   }
   return result;
