@@ -41,10 +41,12 @@ class Ao3IndexActivity final : public Activity {
 
   void buildIndexedHashes();
   void discoverNextDirectory();
+  void discoverRefreshCandidates();
   void collectNextBatch();
   void indexNextBook();
   bool alreadyHandled(uint32_t hash) const;
   bool isIgnored(const std::string& path) const;
+  bool isUnderScanRoot(const std::string& path) const;
   static bool isEpubName(std::string name);
   static uint32_t pathHash(const std::string& path);
 };

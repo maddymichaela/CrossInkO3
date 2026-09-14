@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "Ao3LibraryMetadata.h"
+#include "Ao3ReadingState.h"
 
 #include "Ao3CompactIndexRecord.h"
 
@@ -55,6 +56,9 @@ class Ao3Librarian {
    */
   static void forEachLibraryInfo(const std::function<void(const Ao3LibraryMetadata&)>& callback);
 
+  /** Streams sidecars until the callback returns false. */
+  static void forEachLibraryInfoWhile(const std::function<bool(const Ao3LibraryMetadata&)>& callback);
+
   /**
    * @brief Finds the sidecar associated with a compact index path hash.
    */
@@ -86,6 +90,9 @@ class Ao3Librarian {
 
   /** Invalidates the cached Home-screen AO3 counts after index/state changes. */
   static void invalidateSummaryCache();
+
+  /** Updates cached Home counts without rescanning every AO3 sidecar. */
+  static void updateSummaryForStateChange(Ao3ReadingState oldState, Ao3ReadingState newState);
 
   /**
    * @brief Helper to map AO3 string ratings to our char codes.

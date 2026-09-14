@@ -47,11 +47,12 @@ Ao3ReadingState Ao3ReadingStateStore::load(const std::string& cachePath) {
 }
 
 bool Ao3ReadingStateStore::save(const std::string& cachePath, const Ao3ReadingState state) {
-  Ao3Librarian::invalidateSummaryCache();
   Storage.mkdir(cachePath.c_str());
   if (state == Ao3ReadingState::None) {
     return remove(cachePath);
   }
+
+  const Ao3ReadingState oldState = load(cachePath);
 
   FsFile file;
   if (!Storage.openFileForWrite("AO3S", statePath(cachePath), file)) {
@@ -62,13 +63,17 @@ bool Ao3ReadingStateStore::save(const std::string& cachePath, const Ao3ReadingSt
   record.state = static_cast<uint8_t>(state);
   const bool ok = serialization::tryWritePod(file, record) && file.sync();
   file.close();
+  if (ok) Ao3Librarian::updateSummaryForStateChange(oldState, state);
   return ok;
 }
 
 bool Ao3ReadingStateStore::remove(const std::string& cachePath) {
-  Ao3Librarian::invalidateSummaryCache();
   const std::string path = statePath(cachePath);
-  return !Storage.exists(path.c_str()) || Storage.remove(path.c_str());
+  if (!Storage.exists(path.c_str())) return true;
+  const Ao3ReadingState oldState = load(cachePath);
+  const bool removed = Storage.remove(path.c_str());
+  if (removed) Ao3Librarian::updateSummaryForStateChange(oldState, Ao3ReadingState::None);
+  return removed;
 }
 
 const char* Ao3ReadingStateStore::labelFor(const Ao3ReadingState state) {

@@ -2868,6 +2868,7 @@ void EpubReaderActivity::loop() {
           RenderLock lock(*this);
           section.reset();
           releaseGrayscaleStripScratch();
+          endOfBookOptions.reset();
           GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
           renderer.displayBuffer(HalDisplay::FAST_REFRESH);
         }

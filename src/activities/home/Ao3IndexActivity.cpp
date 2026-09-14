@@ -87,6 +87,12 @@ bool Ao3IndexActivity::isIgnored(const std::string& path) const {
   });
 }
 
+bool Ao3IndexActivity::isUnderScanRoot(const std::string& path) const {
+  return scanRoot == "/" || path == scanRoot ||
+         (path.size() > scanRoot.size() && path.compare(0, scanRoot.size(), scanRoot) == 0 &&
+          path[scanRoot.size()] == '/');
+}
+
 void Ao3IndexActivity::buildIndexedHashes() {
   indexedHashes.clear();
   HalFile file;
@@ -120,9 +126,20 @@ void Ao3IndexActivity::onEnter() {
     state = State::Error;
     errorMessage = "Choose a dedicated AO3 folder before indexing.";
   } else {
-    directories.push_back({scanRoot, 0});
+    if (!refreshExisting) directories.push_back({scanRoot, 0});
   }
   requestUpdate(true);
+}
+
+void Ao3IndexActivity::discoverRefreshCandidates() {
+  unindexedCount = 0;
+  Ao3Librarian::forEachLibraryInfo([this](const Ao3LibraryMetadata& metadata) {
+    const std::string path = metadata.filepath;
+    if (!path.empty() && isUnderScanRoot(path) && !isIgnored(path) && Storage.exists(path.c_str())) {
+      ++unindexedCount;
+    }
+  });
+  state = unindexedCount > 0 ? State::Confirm : State::Complete;
 }
 
 void Ao3IndexActivity::discoverNextDirectory() {
@@ -164,6 +181,21 @@ void Ao3IndexActivity::discoverNextDirectory() {
 void Ao3IndexActivity::collectNextBatch() {
   buildIndexedHashes();
   pendingBooks.clear();
+  if (refreshExisting) {
+    Ao3Librarian::forEachLibraryInfoWhile([this](const Ao3LibraryMetadata& metadata) {
+      const std::string path = metadata.filepath;
+      if (path.empty() || !isUnderScanRoot(path) || isIgnored(path) || !Storage.exists(path.c_str()) ||
+          alreadyHandled(pathHash(path))) {
+        return true;
+      }
+      pendingBooks.push_back(path);
+      return static_cast<int>(pendingBooks.size()) < batchSize;
+    });
+    currentBook = 0;
+    state = pendingBooks.empty() ? State::Complete : State::Indexing;
+    requestUpdate(true);
+    return;
+  }
   directories.clear();
   directories.push_back({scanRoot, 0});
   while (!directories.empty() && static_cast<int>(pendingBooks.size()) < batchSize) {
@@ -252,7 +284,12 @@ void Ao3IndexActivity::loop() {
     return;
   }
   if (state == State::Discovering) {
-    discoverNextDirectory();
+    if (refreshExisting) {
+      discoverRefreshCandidates();
+      requestUpdate(true);
+    } else {
+      discoverNextDirectory();
+    }
     return;
   }
   if (state == State::Indexing) {
