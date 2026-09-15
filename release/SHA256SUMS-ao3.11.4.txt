@@ -1,2 +1,2 @@
-14feafa22242685cc89c8c3764ba9d32e270d45275af62e97467b220d7448dd4  release/CrossInk-AO3-v1.5.1-ao3.11.4-x3-x4.bin
-9307bc712f9c95857d43048ab15cdce14162570f54557e2f05179ba2d62a578d  release/CrossInk-AO3-v1.5.1-ao3.11.4-source.zip
+955030a1200e87acdea47270e6ffbd6ed6c0d84204a3303f10f9218f981d7eee  release/CrossInk-AO3-v1.5.1-ao3.11.4-x3-x4.bin
+d255ec62eaefaf6b2dad1839babad55ff0bab60b1765f523bf5dc3e610ceef4b  release/CrossInk-AO3-v1.5.1-ao3.11.4-source.zip
