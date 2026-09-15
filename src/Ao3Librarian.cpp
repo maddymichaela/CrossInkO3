@@ -1006,7 +1006,6 @@ std::vector<std::string> Ao3Librarian::findNextSeriesBooks(const std::string& ep
     uint32_t cacheHash;
   };
   std::vector<Candidate> candidates;
-  candidates.reserve(maxCount + 1);
 
   HalFile index;
   uint16_t recordCount = 0;
@@ -1014,6 +1013,7 @@ std::vector<std::string> Ao3Librarian::findNextSeriesBooks(const std::string& ep
     if (index) index.close();
     return result;
   }
+  candidates.reserve(recordCount);
 
   CompactIndexRecord record;
   for (uint16_t i = 0; i < recordCount; ++i) {
@@ -1031,33 +1031,28 @@ std::vector<std::string> Ao3Librarian::findNextSeriesBooks(const std::string& ep
     if (duplicate) continue;
 
     candidates.push_back({record.seriesPart, record.cacheHash});
-    std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
-      if (a.part != b.part) return a.part < b.part;
-      return a.cacheHash < b.cacheHash;
-    });
-    if (candidates.size() > maxCount) candidates.pop_back();
   }
   index.close();
 
   if (candidates.empty()) return result;
 
-  std::vector<uint32_t> hashes;
-  hashes.reserve(candidates.size());
-  for (const Candidate& candidate : candidates) hashes.push_back(candidate.cacheHash);
-  std::vector<Ao3LibraryMetadata> metadata(candidates.size());
-  std::unique_ptr<bool[]> found(new bool[candidates.size()]);
-  findLibraryInfoByCacheHashes(hashes.data(), hashes.size(), metadata.data(), found.get());
+  std::sort(candidates.begin(), candidates.end(), [](const Candidate& a, const Candidate& b) {
+    if (a.part != b.part) return a.part < b.part;
+    return a.cacheHash < b.cacheHash;
+  });
 
-  result.reserve(candidates.size());
-  for (size_t i = 0; i < candidates.size(); ++i) {
-    if (!found[i] || metadata[i].filepath[0] == '\0' || !Storage.exists(metadata[i].filepath) ||
-        metadata[i].seriesPart <= current.seriesPart ||
-        strcasecmp(metadata[i].seriesName, current.seriesName) != 0) {
+  result.reserve(std::min(maxCount, candidates.size()));
+  for (const Candidate& candidate : candidates) {
+    Ao3LibraryMetadata metadata;
+    if (!findLibraryInfoByCacheHash(candidate.cacheHash, metadata) || metadata.filepath[0] == '\0' ||
+        !Storage.exists(metadata.filepath) || metadata.seriesPart <= current.seriesPart ||
+        strcasecmp(metadata.seriesName, current.seriesName) != 0) {
       continue;
     }
-    const std::string path = metadata[i].filepath;
+    const std::string path = metadata.filepath;
     if (ReadFolderPolicy::isPathInFolder(path, SETTINGS.readFolder)) continue;
     if (std::find(result.begin(), result.end(), path) == result.end()) result.push_back(path);
+    if (result.size() >= maxCount) break;
   }
   return result;
 }

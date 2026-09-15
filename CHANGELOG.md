@@ -1,5 +1,16 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.4] - 2026-09-15
+
+### Fixed
+
+- Restored end-of-book AO3 series recommendations when the nearest later installments have already been moved into the selected Read folder.
+- Applied the Read-folder exclusion before limiting the series continuation list to three visible suggestions, so archived installments no longer consume every recommendation slot.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, and archive-origin formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.3] - 2026-09-14
 
 ### Added
