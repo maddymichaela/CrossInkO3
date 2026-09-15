@@ -6,6 +6,9 @@
 
 - Restored end-of-book AO3 series recommendations when the nearest later installments have already been moved into the selected Read folder.
 - Applied the Read-folder exclusion before limiting the series continuation list to three visible suggestions, so archived installments no longer consume every recommendation slot.
+- Removed the redundant loading-popup refresh before opening an end-of-book recommendation. Indexed AO3 EPUBs now proceed directly through the normal cached reader handoff.
+- Released the recommendation UI, current EPUB section, and grayscale scratch memory before opening the next book or constructing Home, reducing transition latency and peak heap pressure.
+- Applied the same early recommendation-UI release to XTC end-of-book transitions.
 
 ### Compatibility
 

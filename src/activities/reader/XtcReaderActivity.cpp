@@ -247,9 +247,17 @@ void XtcReaderActivity::loop() {
   }
   switch (endOfBookAction) {
     case EndOfBookOptions::Action::OpenBook:
+      {
+        RenderLock lock(*this);
+        endOfBookOptions.reset();
+      }
       activityManager.goToReader(openPath);
       return;
     case EndOfBookOptions::Action::GoHome:
+      {
+        RenderLock lock(*this);
+        endOfBookOptions.reset();
+      }
       onGoHome();
       return;
     case EndOfBookOptions::Action::LastPage:

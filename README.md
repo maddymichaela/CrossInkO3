@@ -126,7 +126,7 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 
 | Version | Status | Highlights |
 |---|---|---|
-| `1.5.1-ao3.11.4` | Current | Restores AO3 series recommendations when earlier installments are already inside the selected Read folder. |
+| `1.5.1-ao3.11.4` | Current | Restores AO3 series recommendations and removes redundant end-screen refreshes and retained UI state from next-book/Home transitions. |
 | `1.5.1-ao3.11.3` | Previous stable | Adds a global selectable Read folder for normal and AO3 EPUBs and excludes its contents from end-of-book recommendations. |
 | `1.5.1-ao3.11.2` | Previous stable | Speeds reader-to-Home returns, AO3 metadata refresh batches, end-of-book series lookup, and next-book handoff without changing CrossInk reading behavior or the AO3 index format. |
 | `1.5.1-ao3.11.1` | Previous stable | Makes Settings > Check for Firmware Updates use this CrossInkO3 repository, recognize fork-style firmware asset names, and compare AO3 patch versions correctly. |

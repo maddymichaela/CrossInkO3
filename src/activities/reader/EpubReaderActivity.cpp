@@ -2861,12 +2861,16 @@ void EpubReaderActivity::loop() {
           section.reset();
           releaseGrayscaleStripScratch();
           endOfBookOptions.reset();
-          GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
-          renderer.displayBuffer(HalDisplay::FAST_REFRESH);
         }
         activityManager.goToReader(openPath);
         return;
       case EndOfBookOptions::Action::GoHome:
+        {
+          RenderLock lock(*this);
+          section.reset();
+          releaseGrayscaleStripScratch();
+          endOfBookOptions.reset();
+        }
         onGoHome();
         return;
       case EndOfBookOptions::Action::LastPage:
