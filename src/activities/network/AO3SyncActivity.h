@@ -38,6 +38,7 @@ class AO3SyncActivity final : public Activity {
   bool installDownloadedEpub(const std::string& tempPath);
   void restoreOriginalEpub(const std::string& backupPath) const;
   void setError(std::string message, bool downloadRetry = false);
+  bool ensureNetworkHeadroom(const char* operation, bool downloadRetry = false);
   bool cancellationRequested();
   void returnToReader();
 

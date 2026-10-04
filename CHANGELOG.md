@@ -1,5 +1,16 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.5] - 2026-10-05
+
+### Fixed
+
+- Kept the EPUB reader awake while the end-of-book recommendation screen is active, preventing the ESP32-C3 from entering its automatic low-power path before a recommendation or Home action is handled.
+- Added an AO3 HTTPS memory preflight for X3/X4. Update checks and chapter downloads now require both sufficient total internal heap and a 50 KiB contiguous block, and show a recoverable error instead of risking a TLS allocation crash.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, archive-origin, and reading-state formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.4] - 2026-09-15
 
 ### Fixed

@@ -488,7 +488,10 @@ class EpubReaderActivity final : public Activity {
     cleanImageBasePending = true;
     return true;
   }
-  bool preventAutoSleep() override { return automaticPageTurnActive; }
+  bool preventAutoSleep() override {
+    return automaticPageTurnActive ||
+           (epub && currentSpineIndex > 0 && currentSpineIndex >= epub->getSpineItemsCount());
+  }
   // Hold the loop hot only while the build has work this loop would do: a kept-alive
   // build sitting outside the lookahead window is dormant, and reporting it here would
   // pin the CPU at full clock (no power saving, yield-only loop) for the whole read.

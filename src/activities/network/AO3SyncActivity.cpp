@@ -16,6 +16,7 @@
 #include "Ao3Librarian.h"
 #include "Ao3ReadingState.h"
 #include "Ao3UpdateParser.h"
+#include "Ao3SyncMemoryPolicy.h"
 #include "MappedInputManager.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
@@ -178,6 +179,11 @@ void AO3SyncActivity::checkForUpdate() {
   retryDownload_ = false;
   requestUpdateAndWait();
 
+  if (!ensureNetworkHeadroom("update check")) {
+    requestUpdate();
+    return;
+  }
+
   const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
   for (const char* host : hosts) {
     Ao3UpdateParser parser;
@@ -305,6 +311,11 @@ void AO3SyncActivity::downloadUpdate() {
   downloadTotal_ = 0;
   requestUpdateAndWait();
 
+  if (!ensureNetworkHeadroom("EPUB download", true)) {
+    requestUpdate();
+    return;
+  }
+
   const std::string tempPath = bookPath_ + TEMP_SUFFIX;
   Storage.remove(tempPath.c_str());
   const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
@@ -359,6 +370,17 @@ void AO3SyncActivity::setError(std::string message, const bool downloadRetry) {
   errorMessage_ = std::move(message);
   retryDownload_ = downloadRetry;
   state_ = State::Error;
+}
+
+bool AO3SyncActivity::ensureNetworkHeadroom(const char* operation, const bool downloadRetry) {
+  const uint32_t freeHeap = ESP.getFreeHeap();
+  const uint32_t maxAllocHeap = ESP.getMaxAllocHeap();
+  if (Ao3SyncMemoryPolicy::hasNetworkHeadroom(freeHeap, maxAllocHeap)) return true;
+
+  LOG_ERR("AO3U", "Low heap before %s: %u free, %u max alloc (need %u/%u)", operation, freeHeap, maxAllocHeap,
+          Ao3SyncMemoryPolicy::MIN_FREE_HEAP, Ao3SyncMemoryPolicy::MIN_MAX_ALLOC_HEAP);
+  setError("Not enough memory for AO3 update. Press Back and try again.", downloadRetry);
+  return false;
 }
 
 void AO3SyncActivity::returnToReader() {
