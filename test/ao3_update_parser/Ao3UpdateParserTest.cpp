@@ -42,6 +42,18 @@ TEST(Ao3UpdateParser, FallsBackToPublishedDateForOneShot) {
   EXPECT_TRUE(parser.result().isCompleted);
 }
 
+TEST(Ao3UpdateParser, AcceptsAdditionalAttributesAndClassTokens) {
+  Ao3UpdateParser parser;
+  feed(parser,
+       R"(<dd data-label="Updated" class='status datetime'>2026-10-06</dd>)"
+       R"(<dd class="count chapters" data-label="Chapters">5/?</dd>)",
+       5);
+
+  ASSERT_TRUE(parser.complete());
+  EXPECT_EQ(parser.result().updatedDate, "2026-10-06");
+  EXPECT_FALSE(parser.result().isCompleted);
+}
+
 TEST(Ao3UpdateParser, RejectsMalformedDateAndChapterCount) {
   Ao3UpdateParser parser;
   feed(parser, R"(<dd class="status">yesterday</dd><dd class="chapters">twelve</dd>)", 8);

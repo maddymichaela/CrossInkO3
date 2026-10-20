@@ -1,5 +1,17 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.7] - 2026-10-20
+
+### Fixed
+
+- Serialized AO3 metadata parsing with the render task while the EPUB inflater borrows framebuffer memory. This fixes the X3 crash captured during a large metadata refresh without reducing the 50-work batch size.
+- Requested AO3's full-work page directly when checking for chapter updates. Explicit and chaptered works no longer depend on an adult-view cookie surviving AO3's chapter redirect.
+- Made the streamed AO3 update parser tolerate extra attributes, reordered classes, and single-quoted class values in AO3 statistics markup.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, archive-origin, and reading-state formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.6] - 2026-10-20
 
 ### Fixed

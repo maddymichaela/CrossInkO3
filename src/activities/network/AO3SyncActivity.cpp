@@ -15,8 +15,9 @@
 
 #include "Ao3Librarian.h"
 #include "Ao3ReadingState.h"
-#include "Ao3UpdateParser.h"
 #include "Ao3SyncMemoryPolicy.h"
+#include "Ao3SyncUrls.h"
+#include "Ao3UpdateParser.h"
 #include "MappedInputManager.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
@@ -55,13 +56,6 @@ void copyField(char* destination, const size_t capacity, const std::string& sour
 
 bool hasActiveWifiConnection() { return WiFi.status() == WL_CONNECTED && WiFi.localIP() != IPAddress(0, 0, 0, 0); }
 
-std::string workPageUrl(const char* host, const std::string& workId) {
-  return std::string("https://") + host + "/works/" + workId + "?view_adult=true";
-}
-
-std::string downloadUrl(const char* host, const std::string& workId, const std::string& date) {
-  return std::string("https://") + host + "/downloads/" + workId + "/work.epub?v=" + date;
-}
 }  // namespace
 
 AO3SyncActivity::AO3SyncActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string bookPath,
@@ -191,7 +185,7 @@ void AO3SyncActivity::checkForUpdate() {
     options.shouldCancel = [this]() { return cancellationRequested(); };
     options.userAgent = AO3_USER_AGENT;
     const auto result = HttpDownloader::streamUrl(
-        workPageUrl(host, workId_),
+        Ao3SyncUrls::workPage(host, workId_),
         [&parser](const uint8_t* data, const size_t length) {
           parser.feed(data, length);
           return true;
@@ -219,7 +213,7 @@ void AO3SyncActivity::checkForUpdate() {
     return;
   }
 
-  setError("Could not read AO3 work information");
+  setError("AO3 did not return work metadata. Press Select to retry.");
   requestUpdate();
 }
 
@@ -325,7 +319,7 @@ void AO3SyncActivity::downloadUpdate() {
     options.shouldCancel = [this]() { return cancellationRequested(); };
     options.userAgent = AO3_USER_AGENT;
     result = HttpDownloader::downloadToFile(
-        downloadUrl(host, workId_, remoteDate_), tempPath,
+        Ao3SyncUrls::download(host, workId_, remoteDate_), tempPath,
         [this](const size_t downloaded, const size_t total) {
           downloadProgress_ = downloaded;
           downloadTotal_ = total;

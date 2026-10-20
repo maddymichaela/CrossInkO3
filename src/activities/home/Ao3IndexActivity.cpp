@@ -239,6 +239,10 @@ void Ao3IndexActivity::collectNextBatch() {
 }
 
 void Ao3IndexActivity::indexNextBook() {
+  // Metadata parsing temporarily lends the renderer's framebuffer to the ZIP
+  // inflater. Serialize the entire operation with the render task so it can
+  // never draw through the framebuffer while that storage is on loan.
+  RenderLock renderLock(*this);
   if (currentBook >= pendingBooks.size()) {
     state = State::BatchComplete;
     requestUpdate(true);
@@ -270,9 +274,6 @@ void Ao3IndexActivity::indexNextBook() {
 
   bool indexed = false;
   {
-    // The EPUB ZIP inflater can claim the X3/X4 framebuffer's storage while
-    // metadata is rebuilt. The panel continues showing the last rendered
-    // indexing screen, and the loan is returned before the next redraw.
     GfxRenderer::FrameBufferLoan loan(renderer);
     Epub epub(path, "/.crosspoint");
     const bool loaded = epub.load(true, true, Epub::XLocationLoadMode::Skip);

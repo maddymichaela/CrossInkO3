@@ -15,14 +15,53 @@ std::string trim(std::string value) {
 }
 
 bool extractDefinition(const std::string& html, const char* className, std::string& value) {
-  const std::string marker = std::string("<dd class=\"") + className + "\">";
-  const size_t start = html.find(marker);
-  if (start == std::string::npos) return false;
-  const size_t valueStart = start + marker.size();
-  const size_t end = html.find("</dd>", valueStart);
-  if (end == std::string::npos) return false;
-  value = trim(html.substr(valueStart, end - valueStart));
-  return !value.empty();
+  const auto hasClassToken = [className](const std::string& tag) {
+    size_t classPos = tag.find("class");
+    while (classPos != std::string::npos) {
+      size_t cursor = classPos + 5;
+      while (cursor < tag.size() && std::isspace(static_cast<unsigned char>(tag[cursor]))) ++cursor;
+      if (cursor >= tag.size() || tag[cursor] != '=') {
+        classPos = tag.find("class", classPos + 5);
+        continue;
+      }
+      ++cursor;
+      while (cursor < tag.size() && std::isspace(static_cast<unsigned char>(tag[cursor]))) ++cursor;
+      if (cursor >= tag.size() || (tag[cursor] != '\"' && tag[cursor] != '\'')) return false;
+      const char quote = tag[cursor++];
+      const size_t end = tag.find(quote, cursor);
+      if (end == std::string::npos) return false;
+      const std::string classes = tag.substr(cursor, end - cursor);
+      size_t tokenStart = 0;
+      while (tokenStart < classes.size()) {
+        while (tokenStart < classes.size() && std::isspace(static_cast<unsigned char>(classes[tokenStart]))) {
+          ++tokenStart;
+        }
+        size_t tokenEnd = tokenStart;
+        while (tokenEnd < classes.size() && !std::isspace(static_cast<unsigned char>(classes[tokenEnd]))) {
+          ++tokenEnd;
+        }
+        if (classes.compare(tokenStart, tokenEnd - tokenStart, className) == 0) return true;
+        tokenStart = tokenEnd;
+      }
+      return false;
+    }
+    return false;
+  };
+
+  size_t start = html.find("<dd");
+  while (start != std::string::npos) {
+    const size_t tagEnd = html.find('>', start + 3);
+    if (tagEnd == std::string::npos) return false;
+    if (hasClassToken(html.substr(start, tagEnd - start + 1))) {
+      const size_t valueStart = tagEnd + 1;
+      const size_t end = html.find("</dd>", valueStart);
+      if (end == std::string::npos) return false;
+      value = trim(html.substr(valueStart, end - valueStart));
+      return !value.empty();
+    }
+    start = html.find("<dd", tagEnd + 1);
+  }
+  return false;
 }
 
 bool looksLikeIsoDate(const std::string& value) {
