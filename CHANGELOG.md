@@ -1,5 +1,16 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.8] - 2026-10-21
+
+### Fixed
+
+- Stopped AO3 update-check downloads as soon as the streamed parser has the work's update date and chapter status. X3 no longer has to receive an entire full-work HTML response after the required metadata has already arrived.
+- Added an explicit successful-early-stop mode to the shared HTTP streamer while retaining abort-on-callback-failure behavior for all existing callers.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, archive-origin, and reading-state formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.7] - 2026-10-20
 
 ### Fixed

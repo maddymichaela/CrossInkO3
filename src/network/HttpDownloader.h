@@ -47,6 +47,9 @@ class HttpDownloader {
     size_t bufferSize;
     Transport transport;
     std::string userAgent;
+    // Treat a false data-callback result as successful parser completion
+    // instead of a file/write error. The default remains abort-on-false.
+    bool acceptEarlyStop = false;
   };
 
   /**

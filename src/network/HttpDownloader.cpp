@@ -167,6 +167,7 @@ struct Sink {
   size_t total = 0;
   bool rangeIgnored = false;
   std::string userAgent;
+  bool acceptEarlyStop = false;
 };
 
 void setRequestHeaders(esp_http_client_handle_t client, const std::string& username, const std::string& password,
@@ -304,6 +305,10 @@ HttpDownloader::DownloadError runGetWolfSsl(const std::string& url, const std::s
       return HttpDownloader::HTTP_ERROR;
     }
     if (http.callbackAborted()) {
+      if (sink.acceptEarlyStop) {
+        LOG_DBG("HTTP", "Streaming consumer completed after %zu bytes", sink.downloaded);
+        return HttpDownloader::OK;
+      }
       LOG_ERR("HTTP", "Write failed after %zu/%zu bytes", sink.downloaded, sink.total);
       return HttpDownloader::FILE_ERROR;
     }
@@ -478,6 +483,11 @@ HttpDownloader::DownloadError runGetDefault(const std::string& url, const std::s
       if (bytesRead == 0) break;
 
       if (!sink.write(reinterpret_cast<const uint8_t*>(buffer.get()), static_cast<size_t>(bytesRead))) {
+        if (sink.acceptEarlyStop) {
+          LOG_DBG("HTTP", "Streaming consumer completed after %zu bytes", sink.downloaded);
+          esp_http_client_cleanup(client);
+          return HttpDownloader::OK;
+        }
         LOG_ERR("HTTP", "Write failed after %zu/%zu bytes", sink.downloaded, sink.total);
         logNetworkState("Write failure");
         esp_http_client_cleanup(client);
@@ -565,6 +575,7 @@ HttpDownloader::DownloadError HttpDownloader::streamUrl(const std::string& url, 
   sink.progress = std::move(progress);
   sink.shouldCancel = std::move(options.shouldCancel);
   sink.userAgent = std::move(options.userAgent);
+  sink.acceptEarlyStop = options.acceptEarlyStop;
   const size_t bufferSize = options.bufferSize > 0 ? options.bufferSize : DEFAULT_DOWNLOAD_BUFFER_SIZE;
   return runGet(url, username, password, sink, bufferSize, options.transport);
 }

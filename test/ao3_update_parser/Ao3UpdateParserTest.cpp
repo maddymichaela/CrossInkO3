@@ -54,6 +54,14 @@ TEST(Ao3UpdateParser, AcceptsAdditionalAttributesAndClassTokens) {
   EXPECT_FALSE(parser.result().isCompleted);
 }
 
+TEST(Ao3UpdateParser, SignalsStreamingCompletionAsSoonAsBothFieldsArrive) {
+  Ao3UpdateParser parser;
+  const std::string html = R"(<dd class="status">2026-10-06</dd><dd class="chapters">5/?</dd>)";
+
+  EXPECT_FALSE(parser.feed(reinterpret_cast<const uint8_t*>(html.data()), html.size()));
+  EXPECT_TRUE(parser.complete());
+}
+
 TEST(Ao3UpdateParser, RejectsMalformedDateAndChapterCount) {
   Ao3UpdateParser parser;
   feed(parser, R"(<dd class="status">yesterday</dd><dd class="chapters">twelve</dd>)", 8);

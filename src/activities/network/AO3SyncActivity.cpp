@@ -184,11 +184,11 @@ void AO3SyncActivity::checkForUpdate() {
     HttpDownloader::DownloadOptions options;
     options.shouldCancel = [this]() { return cancellationRequested(); };
     options.userAgent = AO3_USER_AGENT;
+    options.acceptEarlyStop = true;
     const auto result = HttpDownloader::streamUrl(
         Ao3SyncUrls::workPage(host, workId_),
         [&parser](const uint8_t* data, const size_t length) {
-          parser.feed(data, length);
-          return true;
+          return parser.feed(data, length);
         },
         nullptr, "", "", options);
 
