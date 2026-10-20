@@ -14,6 +14,7 @@
 #include <cstring>
 
 #include "Ao3CompactIndexRecord.h"
+#include "Ao3IndexMemoryPolicy.h"
 #include "Ao3Librarian.h"
 #include "MappedInputManager.h"
 #include "components/TouchHeaderBackButton.h"
@@ -248,8 +249,14 @@ void Ao3IndexActivity::indexNextBook() {
     requestUpdate(true);
     return;
   }
-  if (ESP.getFreeHeap() < 80U * 1024U || ESP.getMaxAllocHeap() < 48U * 1024U) {
-    yield();
+  const uint32_t freeHeap = ESP.getFreeHeap();
+  const uint32_t maxAllocHeap = ESP.getMaxAllocHeap();
+  if (!Ao3IndexMemoryPolicy::hasMetadataHeadroom(freeHeap, maxAllocHeap)) {
+    LOG_ERR("AO3I", "Insufficient metadata heap: free=%lu max=%lu", static_cast<unsigned long>(freeHeap),
+            static_cast<unsigned long>(maxAllocHeap));
+    state = State::Error;
+    errorMessage = "Not enough memory to refresh metadata. Restart the device and try a smaller batch.";
+    requestUpdate(true);
     return;
   }
 
@@ -261,15 +268,19 @@ void Ao3IndexActivity::indexNextBook() {
     if (it == attemptedHashes.end() || *it != hash) attemptedHashes.insert(it, hash);
   };
 
-  Epub epub(path, "/.crosspoint");
-  const bool loaded = epub.load(true, true, Epub::XLocationLoadMode::Skip);
-  bool ao3 = loaded && (epub.hasAo3Info() || Ao3Librarian::sniffNativeAo3Preface(epub));
-  if (loaded && !ao3) ao3 = isAo3Publisher(epub.sniffPublisher());
-  if (ao3 && Ao3Librarian::scrape(epub, true)) {
-    ++indexedCount;
-  } else {
-    ++failedCount;
+  bool indexed = false;
+  {
+    // The EPUB ZIP inflater can claim the X3/X4 framebuffer's storage while
+    // metadata is rebuilt. The panel continues showing the last rendered
+    // indexing screen, and the loan is returned before the next redraw.
+    GfxRenderer::FrameBufferLoan loan(renderer);
+    Epub epub(path, "/.crosspoint");
+    const bool loaded = epub.load(true, true, Epub::XLocationLoadMode::Skip);
+    bool ao3 = loaded && (epub.hasAo3Info() || Ao3Librarian::sniffNativeAo3Preface(epub));
+    if (loaded && !ao3) ao3 = isAo3Publisher(epub.sniffPublisher());
+    indexed = ao3 && Ao3Librarian::scrape(epub, true);
   }
+  indexed ? ++indexedCount : ++failedCount;
   insertAttempted();
   ++currentBook;
   requestUpdate(true);

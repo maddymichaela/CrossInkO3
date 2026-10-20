@@ -1,5 +1,16 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.6] - 2026-10-20
+
+### Fixed
+
+- Prevented AO3 metadata refresh from waiting forever when X3/X4 heap remains below the old conservative threshold. Metadata-only EPUB loads now borrow the display framebuffer as ZIP-inflater scratch and stop with a dismissible low-memory message if the remaining heap is genuinely unsafe.
+- Aligned AO3 update-check and chapter-download memory preflight limits with CrossInk's proven KOReader TLS limits. Healthy X3 sessions are no longer rejected before an HTTPS request is attempted.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, archive-origin, and reading-state formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.5] - 2026-10-05
 
 ### Fixed
