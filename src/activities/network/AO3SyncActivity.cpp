@@ -21,6 +21,7 @@
 #include "MappedInputManager.h"
 #include "SdCardFontSystem.h"
 #include "SilentRestart.h"
+#include "activities/RenderLock.h"
 #include "activities/network/WifiSelectionActivity.h"
 #include "activities/reader/BookReadingStats.h"
 #include "components/TouchHeaderBackButton.h"
@@ -153,7 +154,8 @@ void AO3SyncActivity::onExit() {
 }
 
 bool AO3SyncActivity::preventAutoSleep() {
-  return state_ == State::Connecting || state_ == State::Checking || state_ == State::Downloading;
+  return state_ == State::Connecting || state_ == State::Checking || state_ == State::CheckingEpub ||
+         state_ == State::Downloading;
 }
 
 void AO3SyncActivity::onWifiSelectionComplete(const bool success) {
@@ -182,6 +184,8 @@ void AO3SyncActivity::checkForUpdate() {
   remoteCompleted_ = false;
   cancelRequested_ = false;
   retryDownload_ = false;
+  updateAlreadyDownloaded_ = false;
+  Storage.remove((bookPath_ + TEMP_SUFFIX).c_str());
   requestUpdateAndWait();
 
   if (!ensureNetworkHeadroom("update check")) {
@@ -239,7 +243,42 @@ void AO3SyncActivity::checkForUpdate() {
   }
 
   if (lastHttpStatus == 403) {
-    setError("AO3 refused the request (403). Locked works are unsupported.");
+    state_ = State::CheckingEpub;
+    downloadProgress_ = 0;
+    downloadTotal_ = 0;
+    requestUpdateAndWait();
+
+    const std::string tempPath = bookPath_ + TEMP_SUFFIX;
+    int epubStatus = 0;
+    if (fetchEpub(tempPath, "", epubStatus)) {
+      std::string epubDate;
+      bool epubCompleted = false;
+      if (inspectDownloadedEpub(tempPath, epubDate, epubCompleted)) {
+        remoteDate_ = std::move(epubDate);
+        remoteCompleted_ = epubCompleted;
+        if (localDate_.empty() || remoteDate_ > localDate_) {
+          updateAlreadyDownloaded_ = true;
+          state_ = State::UpdateAvailable;
+          Ao3ReadingStateStore::save(Epub::cachePathForFilePath(bookPath_, "/.crosspoint"),
+                                     Ao3ReadingState::UpdateAvailable);
+        } else {
+          Storage.remove(tempPath.c_str());
+          state_ = State::UpToDate;
+        }
+        requestUpdate();
+        return;
+      }
+      Storage.remove(tempPath.c_str());
+      setError("AO3 EPUB did not contain matching work metadata.");
+    } else if (cancelRequested_) {
+      Storage.remove(tempPath.c_str());
+      returnToReader();
+      return;
+    } else if (epubStatus == 403) {
+      setError("AO3 blocked both requests (403). Locked works are unsupported.");
+    } else {
+      setError("AO3 page was blocked (403) and EPUB fallback failed.");
+    }
   } else if (lastHttpStatus == 429) {
     setError("AO3 rate limit reached. Please try again later.");
   } else if (lastHttpStatus == 404) {
@@ -256,25 +295,70 @@ void AO3SyncActivity::checkForUpdate() {
   requestUpdate();
 }
 
-bool AO3SyncActivity::validateDownloadedEpub(const std::string& path) const {
+bool AO3SyncActivity::fetchEpub(const std::string& path, const std::string& date, int& httpStatus) {
+  const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
+  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ESP_HTTP,
+                                                   HttpDownloader::Transport::WOLFSSL};
+  HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;
+  httpStatus = 0;
+  for (const char* host : hosts) {
+    for (const auto transport : transports) {
+      int attemptStatus = 0;
+      HttpDownloader::DownloadOptions options;
+      options.shouldCancel = [this]() { return cancellationRequested(); };
+      options.transport = transport;
+      options.responseStatus = &attemptStatus;
+      configureAo3Request(options, AO3_EPUB_ACCEPT);
+      result = HttpDownloader::downloadToFile(
+          Ao3SyncUrls::download(host, workId_, date), path,
+          [this](const size_t downloaded, const size_t total) {
+            downloadProgress_ = downloaded;
+            downloadTotal_ = total;
+            requestUpdate(true);
+          },
+          &cancelRequested_, "", "", std::move(options));
+      if (attemptStatus > 0) httpStatus = attemptStatus;
+      if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
+      Storage.remove(path.c_str());
+      if (attemptStatus > 0) break;
+    }
+    if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
+  }
+  return result == HttpDownloader::OK;
+}
+
+bool AO3SyncActivity::inspectDownloadedEpub(const std::string& path, std::string& updatedDate, bool& completed) {
   ZipFile zip(path);
   if (!zip.open()) return false;
   zip.close();
 
   bool valid = false;
   {
+    RenderLock renderLock(*this);
     Epub downloaded(path, VALIDATION_CACHE_ROOT);
     GfxRenderer::FrameBufferLoan loan(renderer);
     const bool loaded = downloaded.load(true, true, Epub::XLocationLoadMode::Skip);
+    if (loaded) {
+      std::string downloadedWorkId = downloaded.getAo3WorkId();
+      updatedDate = downloaded.getAo3UpdateDate();
+      completed = downloaded.isAo3Completed();
+      if (downloadedWorkId.empty() || updatedDate.empty()) {
+        Ao3WorkIdentity identity;
+        if (Ao3Librarian::readWorkIdentity(downloaded, identity)) {
+          downloadedWorkId = std::move(identity.workId);
+          updatedDate = std::move(identity.updatedDate);
+          completed = identity.isCompleted;
+        }
+      }
+      valid = downloadedWorkId == workId_ && !updatedDate.empty();
+    }
     loan.end();
-    const std::string downloadedWorkId = loaded ? downloaded.getAo3WorkId() : std::string{};
-    valid = loaded && downloaded.isAo3Work() && downloadedWorkId == workId_;
   }
   Epub(path, VALIDATION_CACHE_ROOT).clearCache();
   return valid;
 }
 
-void AO3SyncActivity::restoreOriginalEpub(const std::string& backupPath) const {
+void AO3SyncActivity::restoreOriginalEpub(const std::string& backupPath) {
   if (Storage.exists(bookPath_.c_str())) Storage.remove(bookPath_.c_str());
   if (!Storage.rename(backupPath.c_str(), bookPath_.c_str())) {
     LOG_ERR("AO3U", "Failed to restore EPUB backup: %s", backupPath.c_str());
@@ -283,6 +367,7 @@ void AO3SyncActivity::restoreOriginalEpub(const std::string& backupPath) const {
 
   clearBookCachePreservingUserState(bookPath_);
   Epub original(bookPath_, "/.crosspoint");
+  RenderLock renderLock(*this);
   GfxRenderer::FrameBufferLoan loan(renderer);
   const bool loaded = original.load(true, true, Epub::XLocationLoadMode::Skip);
   loan.end();
@@ -305,11 +390,12 @@ bool AO3SyncActivity::installDownloadedEpub(const std::string& tempPath) {
 
   bool accepted = false;
   {
+    RenderLock renderLock(*this);
     Epub updated(bookPath_, "/.crosspoint");
     GfxRenderer::FrameBufferLoan loan(renderer);
     const bool loaded = updated.load(true, true, Epub::XLocationLoadMode::Skip);
     loan.end();
-    if (loaded && updated.getAo3WorkId() == workId_) {
+    if (loaded) {
       updated.saveAo3Info(workId_, remoteDate_, remoteCompleted_);
       accepted = Ao3Librarian::scrape(updated);
       if (accepted) {
@@ -344,58 +430,40 @@ void AO3SyncActivity::downloadUpdate() {
   downloadTotal_ = 0;
   requestUpdateAndWait();
 
-  if (!ensureNetworkHeadroom("EPUB download", true)) {
+  if (!updateAlreadyDownloaded_ && !ensureNetworkHeadroom("EPUB download", true)) {
     requestUpdate();
     return;
   }
 
   const std::string tempPath = bookPath_ + TEMP_SUFFIX;
-  Storage.remove(tempPath.c_str());
-  const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
-  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ESP_HTTP,
-                                                   HttpDownloader::Transport::WOLFSSL};
-  HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;
-  for (const char* host : hosts) {
-    for (const auto transport : transports) {
-      int attemptStatus = 0;
-      HttpDownloader::DownloadOptions options;
-      options.shouldCancel = [this]() { return cancellationRequested(); };
-      options.transport = transport;
-      options.responseStatus = &attemptStatus;
-      configureAo3Request(options, AO3_EPUB_ACCEPT);
-      result = HttpDownloader::downloadToFile(
-          Ao3SyncUrls::download(host, workId_, remoteDate_), tempPath,
-          [this](const size_t downloaded, const size_t total) {
-            downloadProgress_ = downloaded;
-            downloadTotal_ = total;
-            requestUpdate(true);
-          },
-          &cancelRequested_, "", "", std::move(options));
-      if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
-      Storage.remove(tempPath.c_str());
-      if (attemptStatus > 0) break;
-    }
-    if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
-  }
-
-  if (result == HttpDownloader::ABORTED || cancelRequested_) {
+  int httpStatus = 0;
+  const bool downloaded = updateAlreadyDownloaded_ && Storage.exists(tempPath.c_str());
+  if (!downloaded) Storage.remove(tempPath.c_str());
+  const bool fetched = downloaded || fetchEpub(tempPath, remoteDate_, httpStatus);
+  if (!fetched && cancelRequested_) {
     Storage.remove(tempPath.c_str());
     state_ = State::UpdateAvailable;
     requestUpdate();
     return;
   }
-  if (result != HttpDownloader::OK) {
+  if (!fetched) {
     Storage.remove(tempPath.c_str());
-    setError("AO3 EPUB download failed", true);
+    setError(httpStatus > 0 ? "AO3 EPUB download failed (HTTP " + std::to_string(httpStatus) + ")"
+                            : "AO3 EPUB download failed",
+             true);
     requestUpdate();
     return;
   }
-  if (!validateDownloadedEpub(tempPath)) {
+  std::string downloadedDate;
+  bool downloadedCompleted = false;
+  if (!inspectDownloadedEpub(tempPath, downloadedDate, downloadedCompleted)) {
     Storage.remove(tempPath.c_str());
     setError("Downloaded EPUB did not match this AO3 work", true);
     requestUpdate();
     return;
   }
+  remoteDate_ = std::move(downloadedDate);
+  remoteCompleted_ = downloadedCompleted;
   if (!installDownloadedEpub(tempPath)) {
     Storage.remove(tempPath.c_str());
     setError("Could not safely install the AO3 update", true);
@@ -404,6 +472,7 @@ void AO3SyncActivity::downloadUpdate() {
   }
 
   retryDownload_ = false;
+  updateAlreadyDownloaded_ = false;
   state_ = State::Complete;
   requestUpdate();
 }
@@ -426,6 +495,7 @@ bool AO3SyncActivity::ensureNetworkHeadroom(const char* operation, const bool do
 }
 
 void AO3SyncActivity::returnToReader() {
+  Storage.remove((bookPath_ + TEMP_SUFFIX).c_str());
   removeRequest();
   if (WiFi.getMode() != WIFI_MODE_NULL) {
     WiFi.disconnect(false);
@@ -489,6 +559,15 @@ void AO3SyncActivity::render(RenderLock&&) {
       break;
     case State::Checking:
       renderer.drawCenteredText(UI_10_FONT_ID, centerY, "Checking AO3 for updates...");
+      break;
+    case State::CheckingEpub:
+      renderer.drawCenteredText(UI_10_FONT_ID, centerY - 30, "AO3 page blocked; checking EPUB...");
+      if (downloadTotal_ > 0) {
+        GUI.drawProgressBar(renderer,
+                            Rect{metrics.contentSidePadding, centerY + 10,
+                                 renderer.getScreenWidth() - metrics.contentSidePadding * 2, metrics.progressBarHeight},
+                            static_cast<int>((downloadProgress_ * 100) / downloadTotal_), 100);
+      }
       break;
     case State::UpdateAvailable:
       renderer.drawCenteredText(UI_10_FONT_ID, centerY - 20, "New chapter available", true, EpdFontFamily::BOLD);

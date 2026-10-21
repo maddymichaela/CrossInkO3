@@ -1,5 +1,19 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.10] - 2026-10-21
+
+### Fixed
+
+- Added a direct-EPUB fallback when AO3 or its anti-bot layer returns HTTP 403 for a public work page. The EPUB is streamed to SD, validated as the requested work, and inspected for its embedded update date and completion state.
+- Reused a successfully validated fallback EPUB for installation instead of downloading it twice.
+- Fixed native AO3 downloads whose OPF does not contain the AO3 work ID: identity is now read from the AO3 preface without writing temporary sidecars or polluting the library index.
+- Serialized update validation and cache rebuilding with the render task while framebuffer memory is loaned, reducing X3 crash risk.
+- Replaced the misleading blanket "locked work" error with separate diagnostics for a blocked work page, a blocked EPUB, and invalid downloaded metadata.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, archive-origin, and reading-state formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.9] - 2026-10-21
 
 ### Fixed

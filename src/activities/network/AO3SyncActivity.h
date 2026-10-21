@@ -21,6 +21,7 @@ class AO3SyncActivity final : public Activity {
     Starting,
     Connecting,
     Checking,
+    CheckingEpub,
     UpdateAvailable,
     Downloading,
     UpToDate,
@@ -34,9 +35,10 @@ class AO3SyncActivity final : public Activity {
   void onWifiSelectionComplete(bool success);
   void checkForUpdate();
   void downloadUpdate();
-  bool validateDownloadedEpub(const std::string& path) const;
+  bool fetchEpub(const std::string& path, const std::string& date, int& httpStatus);
+  bool inspectDownloadedEpub(const std::string& path, std::string& updatedDate, bool& completed);
   bool installDownloadedEpub(const std::string& tempPath);
-  void restoreOriginalEpub(const std::string& backupPath) const;
+  void restoreOriginalEpub(const std::string& backupPath);
   void setError(std::string message, bool downloadRetry = false);
   bool ensureNetworkHeadroom(const char* operation, bool downloadRetry = false);
   bool cancellationRequested();
@@ -52,6 +54,7 @@ class AO3SyncActivity final : public Activity {
   bool networkBootReady_ = false;
   bool cancelRequested_ = false;
   bool retryDownload_ = false;
+  bool updateAlreadyDownloaded_ = false;
   size_t downloadProgress_ = 0;
   size_t downloadTotal_ = 0;
 };

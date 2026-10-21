@@ -11,3 +11,8 @@ TEST(Ao3SyncUrlsTest, DownloadRetainsExistingEndpoint) {
   EXPECT_EQ(Ao3SyncUrls::download("archiveofourown.org", "90778581", "2026-10-06"),
             "https://archiveofourown.org/downloads/90778581/work.epub?v=2026-10-06");
 }
+
+TEST(Ao3SyncUrlsTest, DownloadCanDiscoverCurrentEpubWithoutKnownDate) {
+  EXPECT_EQ(Ao3SyncUrls::download("archiveofourown.org", "90778581", ""),
+            "https://archiveofourown.org/downloads/90778581/work.epub");
+}

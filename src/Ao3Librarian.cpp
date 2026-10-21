@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <strings.h>
+#include <utility>
 
 #include "CrossPointSettings.h"
 #include "util/ReadFolderPolicy.h"
@@ -838,6 +839,23 @@ bool Ao3Librarian::parseTitlePage(const Epub& epub,
 
 bool Ao3Librarian::sniffNativeAo3Preface(const Epub& epub) {
   return epub.sniffNativeAo3Preface();
+}
+
+bool Ao3Librarian::readWorkIdentity(const Epub& epub, Ao3WorkIdentity& identity) {
+  Ao3LibraryMetadata metadata;
+  std::string workId;
+  std::string updatedDate;
+  char fandom[32] = {};
+  char relationship1[32] = {};
+  char relationship2[32] = {};
+  if (!parseTitlePage(epub, metadata, workId, updatedDate, fandom, relationship1, relationship2) ||
+      workId.empty() || updatedDate.empty()) {
+    return false;
+  }
+  identity.workId = std::move(workId);
+  identity.updatedDate = std::move(updatedDate);
+  identity.isCompleted = metadata.isCompleted != 0;
+  return true;
 }
 
 char Ao3Librarian::mapRating(const char* s) {

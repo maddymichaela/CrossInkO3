@@ -16,6 +16,12 @@ struct Ao3LibrarySummary {
   uint16_t updatesAvailable = 0;
 };
 
+struct Ao3WorkIdentity {
+  std::string workId;
+  std::string updatedDate;
+  bool isCompleted = false;
+};
+
 /**
  * @brief Utility class to scrape AO3 metadata from an EPUB file.
  * Handles FanFicFare-exported AO3 EPUBs and AO3-download (Calibre-style) EPUBs.
@@ -26,6 +32,9 @@ class Ao3Librarian {
    * @brief True if spine 0 looks like an AO3-download preface (no ao3WorkId in OPF).
    */
   static bool sniffNativeAo3Preface(const Epub& epub);
+
+  /** Reads identity fields from an AO3 EPUB without writing sidecars or index records. */
+  static bool readWorkIdentity(const Epub& epub, Ao3WorkIdentity& identity);
 
   /**
    * @brief Scrapes metadata from the given EPUB and saves it to the sidecar.

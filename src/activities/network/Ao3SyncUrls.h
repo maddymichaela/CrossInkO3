@@ -12,7 +12,9 @@ inline std::string workPage(const char* host, const std::string& workId) {
 }
 
 inline std::string download(const char* host, const std::string& workId, const std::string& date) {
-  return std::string("https://") + host + "/downloads/" + workId + "/work.epub?v=" + date;
+  std::string url = std::string("https://") + host + "/downloads/" + workId + "/work.epub";
+  if (!date.empty()) url += "?v=" + date;
+  return url;
 }
 
 }  // namespace Ao3SyncUrls
