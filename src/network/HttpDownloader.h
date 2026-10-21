@@ -5,6 +5,7 @@
 #include <functional>
 #include <string>
 #include <utility>
+#include <vector>
 
 /**
  * HTTP client utility for fetching content and downloading files.
@@ -47,6 +48,10 @@ class HttpDownloader {
     size_t bufferSize;
     Transport transport;
     std::string userAgent;
+    std::vector<std::pair<std::string, std::string>> headers;
+    // Optional destination for the final HTTP status. A transport failure
+    // before response headers leaves it at zero.
+    int* responseStatus = nullptr;
     // Treat a false data-callback result as successful parser completion
     // instead of a file/write error. The default remains abort-on-false.
     bool acceptEarlyStop = false;

@@ -126,7 +126,8 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 
 | Version | Status | Highlights |
 |---|---|---|
-| `1.5.1-ao3.11.8` | Current X3 test release | Ends AO3 update checks immediately after the required metadata is parsed instead of downloading the complete full-work HTML on X3. |
+| `1.5.1-ao3.11.9` | Current X3 test release | Restores AvesO3-compatible browser headers, adds low-memory TLS fallback, and reports the actual AO3 HTTP/metadata failure category. |
+| `1.5.1-ao3.11.8` | Superseded test release | Ends AO3 update checks after required metadata is parsed, but its reduced request headers still fail against AO3 on the tested X3 connection. |
 | `1.5.1-ao3.11.7` | Superseded test release | Fixes the metadata-refresh framebuffer race and requests Explicit/chaptered AO3 metadata without redirect cookies, but still receives the entire full-work response. |
 | `1.5.1-ao3.11.6` | Superseded test release | Prevents metadata refresh from waiting forever and permits AO3 HTTPS updates at CrossInk's proven TLS memory floor; superseded because framebuffer lending was not synchronized with rendering. |
 | `1.5.1-ao3.11.5` | Superseded test release | Keeps the end-of-book recommendation screen awake and adds the first AO3 HTTPS memory preflight; its X3 limits proved too conservative. |
@@ -140,7 +141,7 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 | `1.5.0-ao3.10.1` | Previous hotfix | Keeps AO3 Sort & Filter rows evenly spaced and leaves the relationship guidance visible before a fandom is selected. |
 | `1.5.0-ao3.10` | Previous feature release | Adds AO3-aware move-to-Read and restore behavior with original nested-folder preservation. |
 
-Version 10 and 11 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11.8` is the current X3/X4 test build; `ao3.11.4` remains the previous stable fallback. The `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
+Version 10 and 11 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11.9` is the current X3/X4 test build; `ao3.11.4` remains the previous stable fallback. The `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
 
 Devices running `ao3.11` or older must flash `ao3.11.1` manually once because those builds still contact the upstream CrossInk release feed. After that one-time upgrade, **Check for Firmware Updates** follows releases from this CrossInkO3 repository.
 

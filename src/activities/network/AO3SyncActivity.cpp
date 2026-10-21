@@ -37,7 +37,12 @@ constexpr char TEMP_SUFFIX[] = ".ao3tmp";
 constexpr char BACKUP_SUFFIX[] = ".ao3bak";
 constexpr char VALIDATION_CACHE_ROOT[] = "/.crosspoint/ao3_validation";
 constexpr char AO3_USER_AGENT[] =
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 "
+    "Safari/537.36";
+constexpr char AO3_HTML_ACCEPT[] =
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+constexpr char AO3_EPUB_ACCEPT[] = "application/epub+zip,application/octet-stream;q=0.9,*/*;q=0.8";
+constexpr char AO3_ACCEPT_LANGUAGE[] = "en-US,en;q=0.5";
 
 struct Ao3UpdateRequestRecord {
   char magic[4] = {'A', 'O', '3', 'U'};
@@ -55,6 +60,12 @@ void copyField(char* destination, const size_t capacity, const std::string& sour
 }
 
 bool hasActiveWifiConnection() { return WiFi.status() == WL_CONNECTED && WiFi.localIP() != IPAddress(0, 0, 0, 0); }
+
+void configureAo3Request(HttpDownloader::DownloadOptions& options, const char* accept) {
+  options.userAgent = AO3_USER_AGENT;
+  options.headers.emplace_back("Accept", accept);
+  options.headers.emplace_back("Accept-Language", AO3_ACCEPT_LANGUAGE);
+}
 
 }  // namespace
 
@@ -179,41 +190,69 @@ void AO3SyncActivity::checkForUpdate() {
   }
 
   const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
+  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ESP_HTTP,
+                                                   HttpDownloader::Transport::WOLFSSL};
+  HttpDownloader::DownloadError lastResult = HttpDownloader::HTTP_ERROR;
+  int lastHttpStatus = 0;
+  bool sawDate = false;
+  bool sawChapters = false;
   for (const char* host : hosts) {
-    Ao3UpdateParser parser;
-    HttpDownloader::DownloadOptions options;
-    options.shouldCancel = [this]() { return cancellationRequested(); };
-    options.userAgent = AO3_USER_AGENT;
-    options.acceptEarlyStop = true;
-    const auto result = HttpDownloader::streamUrl(
-        Ao3SyncUrls::workPage(host, workId_),
-        [&parser](const uint8_t* data, const size_t length) {
-          return parser.feed(data, length);
-        },
-        nullptr, "", "", options);
+    for (const auto transport : transports) {
+      Ao3UpdateParser parser;
+      int attemptStatus = 0;
+      HttpDownloader::DownloadOptions options;
+      options.shouldCancel = [this]() { return cancellationRequested(); };
+      options.transport = transport;
+      options.responseStatus = &attemptStatus;
+      options.acceptEarlyStop = true;
+      configureAo3Request(options, AO3_HTML_ACCEPT);
+      lastResult = HttpDownloader::streamUrl(
+          Ao3SyncUrls::workPage(host, workId_),
+          [&parser](const uint8_t* data, const size_t length) { return parser.feed(data, length); }, nullptr, "", "",
+          std::move(options));
 
-    if (result == HttpDownloader::ABORTED || cancelRequested_) {
-      returnToReader();
-      return;
-    }
-    if (result != HttpDownloader::OK || !parser.complete()) {
-      continue;
-    }
+      if (attemptStatus > 0) lastHttpStatus = attemptStatus;
+      sawDate = sawDate || parser.result().hasDate;
+      sawChapters = sawChapters || parser.result().hasChapterStatus;
+      if (lastResult == HttpDownloader::ABORTED || cancelRequested_) {
+        returnToReader();
+        return;
+      }
+      if (lastResult == HttpDownloader::OK && parser.complete()) {
+        remoteDate_ = parser.result().updatedDate;
+        remoteCompleted_ = parser.result().isCompleted;
+        if (localDate_.empty() || remoteDate_ > localDate_) {
+          state_ = State::UpdateAvailable;
+          Ao3ReadingStateStore::save(Epub::cachePathForFilePath(bookPath_, "/.crosspoint"),
+                                     Ao3ReadingState::UpdateAvailable);
+        } else {
+          state_ = State::UpToDate;
+        }
+        requestUpdate();
+        return;
+      }
 
-    remoteDate_ = parser.result().updatedDate;
-    remoteCompleted_ = parser.result().isCompleted;
-    if (localDate_.empty() || remoteDate_ > localDate_) {
-      state_ = State::UpdateAvailable;
-      Ao3ReadingStateStore::save(Epub::cachePathForFilePath(bookPath_, "/.crosspoint"),
-                                 Ao3ReadingState::UpdateAvailable);
-    } else {
-      state_ = State::UpToDate;
+      // A real HTTP response will not improve by repeating it with another TLS
+      // implementation. Use wolfSSL only when verified TLS failed pre-response.
+      if (attemptStatus > 0) break;
     }
-    requestUpdate();
-    return;
   }
 
-  setError("AO3 did not return work metadata. Press Select to retry.");
+  if (lastHttpStatus == 403) {
+    setError("AO3 refused the request (403). Locked works are unsupported.");
+  } else if (lastHttpStatus == 429) {
+    setError("AO3 rate limit reached. Please try again later.");
+  } else if (lastHttpStatus == 404) {
+    setError("AO3 work was not found (404).");
+  } else if (lastHttpStatus > 0 && lastHttpStatus != 200) {
+    setError("AO3 request failed (HTTP " + std::to_string(lastHttpStatus) + "). Press Select to retry.");
+  } else if (lastHttpStatus == 200 || sawDate || sawChapters) {
+    setError(std::string("AO3 page missing ") + (!sawDate ? "date" : "chapter") + " metadata.");
+  } else if (lastResult == HttpDownloader::FILE_ERROR) {
+    setError("AO3 response ended before metadata. Press Select to retry.");
+  } else {
+    setError("Could not connect to AO3. Press Select to retry.");
+  }
   requestUpdate();
 }
 
@@ -313,21 +352,30 @@ void AO3SyncActivity::downloadUpdate() {
   const std::string tempPath = bookPath_ + TEMP_SUFFIX;
   Storage.remove(tempPath.c_str());
   const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
+  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ESP_HTTP,
+                                                   HttpDownloader::Transport::WOLFSSL};
   HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;
   for (const char* host : hosts) {
-    HttpDownloader::DownloadOptions options;
-    options.shouldCancel = [this]() { return cancellationRequested(); };
-    options.userAgent = AO3_USER_AGENT;
-    result = HttpDownloader::downloadToFile(
-        Ao3SyncUrls::download(host, workId_, remoteDate_), tempPath,
-        [this](const size_t downloaded, const size_t total) {
-          downloadProgress_ = downloaded;
-          downloadTotal_ = total;
-          requestUpdate(true);
-        },
-        &cancelRequested_, "", "", options);
+    for (const auto transport : transports) {
+      int attemptStatus = 0;
+      HttpDownloader::DownloadOptions options;
+      options.shouldCancel = [this]() { return cancellationRequested(); };
+      options.transport = transport;
+      options.responseStatus = &attemptStatus;
+      configureAo3Request(options, AO3_EPUB_ACCEPT);
+      result = HttpDownloader::downloadToFile(
+          Ao3SyncUrls::download(host, workId_, remoteDate_), tempPath,
+          [this](const size_t downloaded, const size_t total) {
+            downloadProgress_ = downloaded;
+            downloadTotal_ = total;
+            requestUpdate(true);
+          },
+          &cancelRequested_, "", "", std::move(options));
+      if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
+      Storage.remove(tempPath.c_str());
+      if (attemptStatus > 0) break;
+    }
     if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
-    Storage.remove(tempPath.c_str());
   }
 
   if (result == HttpDownloader::ABORTED || cancelRequested_) {

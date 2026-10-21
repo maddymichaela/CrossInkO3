@@ -1,5 +1,17 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.9] - 2026-10-21
+
+### Fixed
+
+- Restored the browser request headers used by AvesO3 for AO3 work-page and EPUB requests, including explicit HTML/EPUB `Accept` and English-language preferences.
+- Added verified-TLS-first transport fallback for AO3. If the ESP certificate-verified client cannot obtain an HTTP response, the existing low-memory wolfSSL client gets one attempt before moving to the alternate AO3 host.
+- Preserved HTTP response status through streamed downloads so the device now distinguishes forbidden/locked works, rate limiting, missing works, transport failures, and incomplete AO3 metadata instead of reporting one generic error.
+
+### Compatibility
+
+- The AO3 index, EPUB cache, settings, archive-origin, and reading-state formats are unchanged. Existing libraries do not require deletion or reindexing.
+
 ## [v1.5.1-ao3.11.8] - 2026-10-21
 
 ### Fixed

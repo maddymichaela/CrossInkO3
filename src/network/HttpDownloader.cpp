@@ -167,14 +167,20 @@ struct Sink {
   size_t total = 0;
   bool rangeIgnored = false;
   std::string userAgent;
+  std::vector<std::pair<std::string, std::string>> headers;
+  int* responseStatus = nullptr;
   bool acceptEarlyStop = false;
 };
 
 void setRequestHeaders(esp_http_client_handle_t client, const std::string& username, const std::string& password,
-                       size_t resumeOffset, bool sendAuthorization, const std::string& userAgent) {
+                       size_t resumeOffset, bool sendAuthorization, const std::string& userAgent,
+                       const std::vector<std::pair<std::string, std::string>>& headers) {
   esp_http_client_set_header(client, "User-Agent",
                              userAgent.empty() ? "CrossInk-ESP32-" CROSSINK_VERSION : userAgent.c_str());
   esp_http_client_set_header(client, "Connection", "close");
+  for (const auto& [name, value] : headers) {
+    esp_http_client_set_header(client, name.c_str(), value.c_str());
+  }
   if (resumeOffset > 0) {
     char rangeHeader[40];
     snprintf(rangeHeader, sizeof(rangeHeader), "bytes=%zu-", resumeOffset);
@@ -225,6 +231,9 @@ HttpDownloader::DownloadError runGetWolfSsl(const std::string& url, const std::s
     // Replace SecureHttpClient's built-in User-Agent so strict servers receive
     // exactly one header while retaining CrossInk's device/version identity.
     http.setUserAgent(sink.userAgent.empty() ? "CrossInk-ESP32-" CROSSINK_VERSION : sink.userAgent);
+    for (const auto& [name, value] : sink.headers) {
+      http.addHeader(name, value);
+    }
     if (sink.resumeOffset > 0) {
       char rangeHeader[40];
       snprintf(rangeHeader, sizeof(rangeHeader), "bytes=%zu-", sink.resumeOffset);
@@ -259,6 +268,7 @@ HttpDownloader::DownloadError runGetWolfSsl(const std::string& url, const std::s
           return true;
         },
         [&sink]() { return isCancelRequested(sink.cancelFlag, sink.shouldCancel); });
+    if (sink.responseStatus) *sink.responseStatus = status > 0 ? status : 0;
 
     if (http.aborted()) return HttpDownloader::ABORTED;
     if (sink.rangeIgnored) {
@@ -360,7 +370,7 @@ HttpDownloader::DownloadError runGetDefault(const std::string& url, const std::s
       return HttpDownloader::HTTP_ERROR;
     }
 
-    setRequestHeaders(client, username, password, sink.resumeOffset, sendAuthorization, sink.userAgent);
+    setRequestHeaders(client, username, password, sink.resumeOffset, sendAuthorization, sink.userAgent, sink.headers);
 
     esp_err_t err = esp_http_client_open(client, 0);
     if (err != ESP_OK) {
@@ -373,6 +383,7 @@ HttpDownloader::DownloadError runGetDefault(const std::string& url, const std::s
 
     int64_t responseLength = esp_http_client_fetch_headers(client);
     const int status = esp_http_client_get_status_code(client);
+    if (sink.responseStatus) *sink.responseStatus = status;
     if (responseLength < 0) {
       LOG_ERR("HTTP", "Fetch headers failed: %lld", static_cast<long long>(responseLength));
       logNetworkState("Fetch headers failure");
@@ -575,6 +586,8 @@ HttpDownloader::DownloadError HttpDownloader::streamUrl(const std::string& url, 
   sink.progress = std::move(progress);
   sink.shouldCancel = std::move(options.shouldCancel);
   sink.userAgent = std::move(options.userAgent);
+  sink.headers = std::move(options.headers);
+  sink.responseStatus = options.responseStatus;
   sink.acceptEarlyStop = options.acceptEarlyStop;
   const size_t bufferSize = options.bufferSize > 0 ? options.bufferSize : DEFAULT_DOWNLOAD_BUFFER_SIZE;
   return runGet(url, username, password, sink, bufferSize, options.transport);
@@ -606,6 +619,8 @@ HttpDownloader::DownloadError HttpDownloader::downloadToFile(const std::string& 
   sink.cancelFlag = cancelFlag;
   sink.shouldCancel = std::move(options.shouldCancel);
   sink.userAgent = std::move(options.userAgent);
+  sink.headers = std::move(options.headers);
+  sink.responseStatus = options.responseStatus;
   sink.resumeOffset = resumeOffset;
 
   FsFile file;
