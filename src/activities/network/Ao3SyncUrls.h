@@ -17,4 +17,8 @@ inline std::string download(const char* host, const std::string& workId, const s
   return url;
 }
 
+inline std::string directDownload(const std::string& workId, const std::string& date) {
+  return download("download.archiveofourown.org", workId, date);
+}
+
 }  // namespace Ao3SyncUrls

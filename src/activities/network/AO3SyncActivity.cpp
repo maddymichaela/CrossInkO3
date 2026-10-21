@@ -296,7 +296,9 @@ void AO3SyncActivity::checkForUpdate() {
 }
 
 bool AO3SyncActivity::fetchEpub(const std::string& path, const std::string& date, int& httpStatus) {
-  const char* hosts[] = {"archiveofourown.org", "archiveofourown.gay"};
+  // Contact AO3's file host directly first. The front domains may reject the
+  // embedded client before returning their redirect to this host.
+  const char* hosts[] = {"download.archiveofourown.org", "archiveofourown.org", "archiveofourown.gay"};
   const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ESP_HTTP,
                                                    HttpDownloader::Transport::WOLFSSL};
   HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;

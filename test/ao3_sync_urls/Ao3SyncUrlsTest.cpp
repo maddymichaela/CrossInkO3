@@ -16,3 +16,8 @@ TEST(Ao3SyncUrlsTest, DownloadCanDiscoverCurrentEpubWithoutKnownDate) {
   EXPECT_EQ(Ao3SyncUrls::download("archiveofourown.org", "90778581", ""),
             "https://archiveofourown.org/downloads/90778581/work.epub");
 }
+
+TEST(Ao3SyncUrlsTest, DirectDownloadBypassesBlockedFrontDomain) {
+  EXPECT_EQ(Ao3SyncUrls::directDownload("90778581", ""),
+            "https://download.archiveofourown.org/downloads/90778581/work.epub");
+}

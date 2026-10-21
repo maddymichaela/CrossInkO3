@@ -1,5 +1,16 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.11] - 2026-10-21
+
+### Fixed
+
+- Made AO3 EPUB checks contact `download.archiveofourown.org` directly before trying the blocked AO3 front domains. This bypasses the redirect request that still returned HTTP 403/525 on X3 in AO3.11.10.
+- Kept the AO3 front domains as secondary routes and retained streamed SD download, embedded work-ID/date validation, backup, rollback, and reader-state preservation.
+
+### Compatibility
+
+- No AO3 index, EPUB cache, settings, archive-origin, or reading-state format changed. No deletion or reindexing is required.
+
 ## [v1.5.1-ao3.11.10] - 2026-10-21
 
 ### Fixed
