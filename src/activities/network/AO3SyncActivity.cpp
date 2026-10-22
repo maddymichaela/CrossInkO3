@@ -66,6 +66,7 @@ void configureAo3Request(HttpDownloader::DownloadOptions& options, const char* a
   options.userAgent = AO3_USER_AGENT;
   options.headers.emplace_back("Accept", accept);
   options.headers.emplace_back("Accept-Language", AO3_ACCEPT_LANGUAGE);
+  options.headers.emplace_back("Connection", "keep-alive");
 }
 
 }  // namespace
@@ -249,8 +250,9 @@ void AO3SyncActivity::checkForUpdate() {
     requestUpdateAndWait();
 
     const std::string tempPath = bookPath_ + TEMP_SUFFIX;
-    int epubStatus = 0;
-    if (fetchEpub(tempPath, "", epubStatus)) {
+    int directStatus = 0;
+    int fallbackStatus = 0;
+    if (fetchEpub(tempPath, "", directStatus, fallbackStatus)) {
       std::string epubDate;
       bool epubCompleted = false;
       if (inspectDownloadedEpub(tempPath, epubDate, epubCompleted)) {
@@ -274,10 +276,14 @@ void AO3SyncActivity::checkForUpdate() {
       Storage.remove(tempPath.c_str());
       returnToReader();
       return;
-    } else if (epubStatus == 403) {
-      setError("AO3 blocked both requests (403). Locked works are unsupported.");
+    } else if (directStatus == 403) {
+      setError("Direct AO3 EPUB was refused (403). The work may be locked.");
+    } else if (directStatus > 0) {
+      setError("Direct AO3 EPUB failed (HTTP " + std::to_string(directStatus) + ").");
+    } else if (fallbackStatus > 0) {
+      setError("Direct EPUB connection failed; fallback HTTP " + std::to_string(fallbackStatus) + ".");
     } else {
-      setError("AO3 page was blocked (403) and EPUB fallback failed.");
+      setError("Could not connect to the direct AO3 EPUB host.");
     }
   } else if (lastHttpStatus == 429) {
     setError("AO3 rate limit reached. Please try again later.");
@@ -295,15 +301,19 @@ void AO3SyncActivity::checkForUpdate() {
   requestUpdate();
 }
 
-bool AO3SyncActivity::fetchEpub(const std::string& path, const std::string& date, int& httpStatus) {
+bool AO3SyncActivity::fetchEpub(const std::string& path, const std::string& date, int& directStatus,
+                                int& fallbackStatus) {
   // Contact AO3's file host directly first. The front domains may reject the
   // embedded client before returning their redirect to this host.
   const char* hosts[] = {"download.archiveofourown.org", "archiveofourown.org", "archiveofourown.gay"};
-  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ESP_HTTP,
+  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::ARDUINO_HTTP,
+                                                   HttpDownloader::Transport::ESP_HTTP,
                                                    HttpDownloader::Transport::WOLFSSL};
   HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;
-  httpStatus = 0;
-  for (const char* host : hosts) {
+  directStatus = 0;
+  fallbackStatus = 0;
+  for (size_t hostIndex = 0; hostIndex < sizeof(hosts) / sizeof(hosts[0]); ++hostIndex) {
+    const char* host = hosts[hostIndex];
     for (const auto transport : transports) {
       int attemptStatus = 0;
       HttpDownloader::DownloadOptions options;
@@ -319,7 +329,13 @@ bool AO3SyncActivity::fetchEpub(const std::string& path, const std::string& date
             requestUpdate(true);
           },
           &cancelRequested_, "", "", std::move(options));
-      if (attemptStatus > 0) httpStatus = attemptStatus;
+      if (attemptStatus > 0) {
+        if (hostIndex == 0) {
+          directStatus = attemptStatus;
+        } else {
+          fallbackStatus = attemptStatus;
+        }
+      }
       if (result == HttpDownloader::OK || result == HttpDownloader::ABORTED) break;
       Storage.remove(path.c_str());
       if (attemptStatus > 0) break;
@@ -438,10 +454,11 @@ void AO3SyncActivity::downloadUpdate() {
   }
 
   const std::string tempPath = bookPath_ + TEMP_SUFFIX;
-  int httpStatus = 0;
+  int directStatus = 0;
+  int fallbackStatus = 0;
   const bool downloaded = updateAlreadyDownloaded_ && Storage.exists(tempPath.c_str());
   if (!downloaded) Storage.remove(tempPath.c_str());
-  const bool fetched = downloaded || fetchEpub(tempPath, remoteDate_, httpStatus);
+  const bool fetched = downloaded || fetchEpub(tempPath, remoteDate_, directStatus, fallbackStatus);
   if (!fetched && cancelRequested_) {
     Storage.remove(tempPath.c_str());
     state_ = State::UpdateAvailable;
@@ -450,8 +467,8 @@ void AO3SyncActivity::downloadUpdate() {
   }
   if (!fetched) {
     Storage.remove(tempPath.c_str());
-    setError(httpStatus > 0 ? "AO3 EPUB download failed (HTTP " + std::to_string(httpStatus) + ")"
-                            : "AO3 EPUB download failed",
+    setError(directStatus > 0 ? "AO3 EPUB download failed (HTTP " + std::to_string(directStatus) + ")"
+                              : "AO3 EPUB download connection failed",
              true);
     requestUpdate();
     return;

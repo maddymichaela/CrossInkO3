@@ -1,8 +1,10 @@
 #include "HttpDownloader.h"
 
 #include <Arduino.h>
+#include <HTTPClient.h>
 #include <Logging.h>
 #include <Memory.h>
+#include <NetworkClientSecure.h>
 #include <WiFi.h>
 #include <base64.h>
 #if defined(FREEINK_NET_WOLFSSL)
@@ -12,6 +14,7 @@
 #include <esp_http_client.h>
 #include <strings.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <functional>
 #include <string>
@@ -340,6 +343,98 @@ HttpDownloader::DownloadError runGetWolfSsl(const std::string& url, const std::s
 }
 #endif
 
+HttpDownloader::DownloadError runGetArduino(const std::string& url, const std::string& username,
+                                            const std::string& password, Sink& sink, const size_t bufferSize) {
+  NetworkClientSecure secureClient;
+  secureClient.setInsecure();
+  secureClient.setTimeout(20);
+  const char* alpnProtocols[] = {"http/1.1", nullptr};
+  secureClient.setAlpnProtocols(alpnProtocols);
+
+  HTTPClient http;
+  if (!http.begin(secureClient, url.c_str())) {
+    LOG_ERR("HTTP", "Arduino HTTP rejected URL: %s", url.c_str());
+    return HttpDownloader::HTTP_ERROR;
+  }
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+  http.setRedirectLimit(MAX_REDIRECTS);
+  http.setTimeout(20000);
+  http.setReuse(true);
+  http.setUserAgent((sink.userAgent.empty() ? "CrossInk-ESP32-" CROSSINK_VERSION : sink.userAgent).c_str());
+  for (const auto& [name, value] : sink.headers) {
+    http.addHeader(name.c_str(), value.c_str());
+  }
+  if (!username.empty() && !password.empty()) http.setAuthorization(username.c_str(), password.c_str());
+
+  LOG_DBG("HTTP", "Arduino HTTP GET: %s", url.c_str());
+  const int status = http.GET();
+  if (sink.responseStatus) *sink.responseStatus = status > 0 ? status : 0;
+  if (status != HTTP_CODE_OK) {
+    LOG_ERR("HTTP", "Arduino HTTP status: %d", status);
+    http.end();
+    return HttpDownloader::HTTP_ERROR;
+  }
+
+  NetworkClient* stream = http.getStreamPtr();
+  auto buffer = makeUniqueNoThrow<uint8_t[]>(bufferSize);
+  if (!stream || !buffer) {
+    LOG_ERR("HTTP", "Arduino HTTP stream/buffer unavailable");
+    http.end();
+    return HttpDownloader::HTTP_ERROR;
+  }
+
+  const int contentLength = http.getSize();
+  sink.total = contentLength > 0 ? static_cast<size_t>(contentLength) : 0;
+  sink.downloaded = 0;
+  ProgressNotifier progressNotifier(sink.progress);
+  progressNotifier.setTotal(sink.total);
+  uint32_t lastReadMs = millis();
+
+  while (http.connected() && (contentLength < 0 || sink.downloaded < sink.total)) {
+    if (isCancelRequested(sink.cancelFlag, sink.shouldCancel)) {
+      http.end();
+      return HttpDownloader::ABORTED;
+    }
+
+    const size_t available = stream->available();
+    if (available == 0) {
+      const uint32_t idleMs = millis() - lastReadMs;
+      if (idleMs >= DOWNLOAD_IDLE_TIMEOUT_MS) {
+        logDownloadState("Arduino HTTP timed out", sink.downloaded, sink.total, idleMs);
+        http.end();
+        return HttpDownloader::HTTP_ERROR;
+      }
+      delay(1);
+      continue;
+    }
+
+    size_t toRead = std::min(available, bufferSize);
+    if (sink.total > 0) toRead = std::min(toRead, sink.total - sink.downloaded);
+    const int bytesRead = stream->read(buffer.get(), toRead);
+    if (bytesRead <= 0) {
+      delay(1);
+      continue;
+    }
+    if (!sink.write(buffer.get(), static_cast<size_t>(bytesRead))) {
+      http.end();
+      return sink.acceptEarlyStop ? HttpDownloader::OK : HttpDownloader::FILE_ERROR;
+    }
+    sink.downloaded += static_cast<size_t>(bytesRead);
+    lastReadMs = millis();
+    progressNotifier.notify(sink.downloaded, false);
+    delay(0);
+  }
+
+  const bool complete = sink.total == 0 ? sink.downloaded > 0 : sink.downloaded == sink.total;
+  progressNotifier.notify(sink.downloaded, true);
+  http.end();
+  if (!complete) {
+    LOG_ERR("HTTP", "Arduino HTTP incomplete: got %zu of %zu bytes", sink.downloaded, sink.total);
+    return HttpDownloader::HTTP_ERROR;
+  }
+  return HttpDownloader::OK;
+}
+
 HttpDownloader::DownloadError runGetDefault(const std::string& url, const std::string& username,
                                             const std::string& password, Sink& sink, const size_t bufferSize) {
   std::string currentUrl = url;
@@ -535,6 +630,9 @@ HttpDownloader::DownloadError runGetDefault(const std::string& url, const std::s
 
 HttpDownloader::DownloadError runGet(const std::string& url, const std::string& username, const std::string& password,
                                      Sink& sink, const size_t bufferSize, const HttpDownloader::Transport transport) {
+  if (transport == HttpDownloader::Transport::ARDUINO_HTTP) {
+    return runGetArduino(url, username, password, sink, bufferSize);
+  }
 #if defined(FREEINK_NET_WOLFSSL)
   if (transport == HttpDownloader::Transport::WOLFSSL) {
     return runGetWolfSsl(url, username, password, sink, bufferSize);

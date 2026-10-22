@@ -1,5 +1,19 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.12] - 2026-10-22
+
+### Fixed
+
+- Added an AO3-only Arduino `HTTPClient` transport matching AvesO3's request behavior: insecure `NetworkClientSecure`, explicit HTTP/1.1 ALPN, keep-alive, browser headers, and strict redirect handling.
+- Kept EPUB bodies streamed to SD and retained CrossInkO3's work-ID validation, backup, rollback, cache rebuild, and reader-state preservation.
+- Preserved the direct EPUB host's status separately from front-domain fallbacks. Errors now distinguish a direct HTTP response, a direct TLS/connection failure, and a later fallback response instead of always displaying the final 403.
+- Confirmed that Explicit works are supported; the AO3 adult-view interstitial applies to HTML and is not the cause of the direct EPUB failure.
+- Fixed large authenticated OPDS feeds failing on X3 while their entries were parsed alongside live TLS buffers. Feed XML is now staged briefly on SD and parsed only after TLS is released, with a certificate-verified HTTPS fallback and visible HTTP status diagnostics.
+
+### Compatibility
+
+- No AO3 index, EPUB cache, settings, archive-origin, or reading-state format changed. No deletion or reindexing is required.
+
 ## [v1.5.1-ao3.11.11] - 2026-10-21
 
 ### Fixed

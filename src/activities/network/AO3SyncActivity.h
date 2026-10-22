@@ -35,7 +35,7 @@ class AO3SyncActivity final : public Activity {
   void onWifiSelectionComplete(bool success);
   void checkForUpdate();
   void downloadUpdate();
-  bool fetchEpub(const std::string& path, const std::string& date, int& httpStatus);
+  bool fetchEpub(const std::string& path, const std::string& date, int& directStatus, int& fallbackStatus);
   bool inspectDownloadedEpub(const std::string& path, std::string& updatedDate, bool& completed);
   bool installDownloadedEpub(const std::string& tempPath);
   void restoreOriginalEpub(const std::string& backupPath);

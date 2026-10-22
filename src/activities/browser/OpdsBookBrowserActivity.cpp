@@ -7,7 +7,6 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
-#include <OpdsStream.h>
 #include <WiFi.h>
 
 #include <utility>
@@ -35,6 +34,8 @@ namespace fui = freeink::ui;
 namespace {
 constexpr size_t OPDS_BROWSER_ENTRY_CAPACITY = MAX_OPDS_FEED_ENTRIES + 2;
 constexpr size_t OPDS_DOWNLOAD_BUFFER_SIZE = 2048;
+constexpr size_t OPDS_FEED_BUFFER_SIZE = 512;
+constexpr char OPDS_FEED_TEMP_PATH[] = "/.crosspoint/opds-feed.tmp";
 constexpr fui::ActionId ACTION_ROW = 1;
 constexpr fui::ActionId ACTION_SEARCH = 2;
 constexpr fui::ActionId ACTION_CANCEL = 3;
@@ -509,21 +510,60 @@ void OpdsBookBrowserActivity::fetchFeed(const std::string& path) {
   clearEntries();
   const std::string url = UrlUtils::buildUrl(server.url, path);
   LOG_DBG("OPDS", "Fetching: %s", url.c_str());
-  OpdsParser parser(entries.get(), MAX_OPDS_FEED_ENTRIES);
-  {
-    OpdsParserStream stream{parser};
+  Storage.mkdir("/.crosspoint");
+  int httpStatus = 0;
+  HttpDownloader::DownloadError result = HttpDownloader::HTTP_ERROR;
+  const HttpDownloader::Transport transports[] = {HttpDownloader::Transport::WOLFSSL,
+                                                   HttpDownloader::Transport::ESP_HTTP};
+  for (const auto transport : transports) {
+    Storage.remove(OPDS_FEED_TEMP_PATH);
+    int attemptStatus = 0;
     HttpDownloader::DownloadOptions downloadOptions;
-    downloadOptions.transport = HttpDownloader::Transport::WOLFSSL;
-    const auto result = HttpDownloader::streamUrl(
-        url, [&stream](const uint8_t* data, const size_t len) { return stream.write(data, len) == len; }, nullptr,
-        server.username, server.password, std::move(downloadOptions));
-    if (result != HttpDownloader::OK) {
-      state = BrowserState::ERROR;
-      errorMessage = tr(STR_FETCH_FEED_FAILED);
-      requestUpdate();
-      return;
-    }
+    downloadOptions.transport = transport;
+    downloadOptions.bufferSize = OPDS_FEED_BUFFER_SIZE;
+    downloadOptions.responseStatus = &attemptStatus;
+    downloadOptions.headers.emplace_back("Accept", "application/atom+xml,application/xml;q=0.9,*/*;q=0.8");
+    downloadOptions.headers.emplace_back("Accept-Encoding", "identity");
+    result = HttpDownloader::downloadToFile(url, OPDS_FEED_TEMP_PATH, nullptr, nullptr, server.username,
+                                            server.password, std::move(downloadOptions));
+    if (attemptStatus > 0) httpStatus = attemptStatus;
+    if (result == HttpDownloader::OK) break;
+    // Authentication and permission responses will not improve with another
+    // TLS implementation; avoid repeating credentials and server load.
+    if (attemptStatus == 401 || attemptStatus == 403) break;
   }
+
+  if (result != HttpDownloader::OK) {
+    Storage.remove(OPDS_FEED_TEMP_PATH);
+    state = BrowserState::ERROR;
+    errorMessage = tr(STR_FETCH_FEED_FAILED);
+    if (httpStatus > 0) errorMessage += " (HTTP " + std::to_string(httpStatus) + ")";
+    requestUpdate();
+    return;
+  }
+
+  // Parse only after HttpDownloader has released its TLS buffers. Large OPDS
+  // feeds (including Grimmory's 50-book pages) otherwise grow the retained
+  // entry strings while TLS is still live and can exhaust contiguous X3 heap.
+  OpdsParser parser(entries.get(), MAX_OPDS_FEED_ENTRIES);
+  FsFile feedFile;
+  if (!Storage.openFileForRead("OPDS", OPDS_FEED_TEMP_PATH, feedFile)) {
+    Storage.remove(OPDS_FEED_TEMP_PATH);
+    state = BrowserState::ERROR;
+    errorMessage = tr(STR_FETCH_FEED_FAILED);
+    requestUpdate();
+    return;
+  }
+
+  uint8_t feedBuffer[OPDS_FEED_BUFFER_SIZE];
+  while (feedFile.available() > 0 && !parser.error()) {
+    const int bytesRead = feedFile.read(feedBuffer, sizeof(feedBuffer));
+    if (bytesRead <= 0) break;
+    parser.write(feedBuffer, static_cast<size_t>(bytesRead));
+  }
+  feedFile.close();
+  Storage.remove(OPDS_FEED_TEMP_PATH);
+  parser.flush();
 
   if (!parser) {
     state = BrowserState::ERROR;

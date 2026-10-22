@@ -30,6 +30,7 @@ class HttpDownloader {
   enum class Transport {
     ESP_HTTP,
     WOLFSSL,
+    ARDUINO_HTTP,
   };
 
   struct DownloadOptions {
