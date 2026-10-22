@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <utility>
 
 #include "Ao3Librarian.h"
@@ -67,6 +68,39 @@ void configureAo3Request(HttpDownloader::DownloadOptions& options, const char* a
   options.headers.emplace_back("Accept", accept);
   options.headers.emplace_back("Accept-Language", AO3_ACCEPT_LANGUAGE);
   options.headers.emplace_back("Connection", "keep-alive");
+}
+
+bool writeFallbackLibraryInfo(const std::string& cachePath, Ao3LibraryMetadata& metadata,
+                              const std::string& bookPath, const std::string& updatedDate,
+                              const bool completed) {
+  copyField(metadata.filepath, sizeof(metadata.filepath), bookPath);
+  copyField(metadata.updatedDate, sizeof(metadata.updatedDate), updatedDate);
+  metadata.isCompleted = completed ? 1 : 0;
+
+  Storage.mkdir(cachePath.c_str());
+  const std::string infoPath = cachePath + "/ao3_library_info";
+  const std::string tempPath = infoPath + ".tmp";
+  if (Storage.exists(tempPath.c_str()) && !Storage.remove(tempPath.c_str())) return false;
+
+  FsFile file;
+  if (!Storage.openFileForWrite("AO3U", tempPath, file)) return false;
+  const bool written = file.write(reinterpret_cast<const uint8_t*>(&metadata), sizeof(metadata)) == sizeof(metadata);
+  const bool synced = written && file.sync();
+  const bool closed = file.close();
+  if (!written || !synced || !closed) {
+    Storage.remove(tempPath.c_str());
+    return false;
+  }
+
+  if (Storage.exists(infoPath.c_str()) && !Storage.remove(infoPath.c_str())) {
+    Storage.remove(tempPath.c_str());
+    return false;
+  }
+  if (!Storage.rename(tempPath.c_str(), infoPath.c_str())) {
+    Storage.remove(tempPath.c_str());
+    return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -376,60 +410,94 @@ bool AO3SyncActivity::inspectDownloadedEpub(const std::string& path, std::string
   return valid;
 }
 
-void AO3SyncActivity::restoreOriginalEpub(const std::string& backupPath) {
-  if (Storage.exists(bookPath_.c_str())) Storage.remove(bookPath_.c_str());
+bool AO3SyncActivity::restoreOriginalEpub(const std::string& backupPath) {
+  if (Storage.exists(bookPath_.c_str()) && !Storage.remove(bookPath_.c_str())) {
+    LOG_ERR("AO3U", "Failed to remove rejected EPUB before rollback: %s", bookPath_.c_str());
+    return false;
+  }
   if (!Storage.rename(backupPath.c_str(), bookPath_.c_str())) {
     LOG_ERR("AO3U", "Failed to restore EPUB backup: %s", backupPath.c_str());
-    return;
+    return false;
   }
-
-  clearBookCachePreservingUserState(bookPath_);
-  Epub original(bookPath_, "/.crosspoint");
-  RenderLock renderLock(*this);
-  GfxRenderer::FrameBufferLoan loan(renderer);
-  const bool loaded = original.load(true, true, Epub::XLocationLoadMode::Skip);
-  loan.end();
-  if (loaded) Ao3Librarian::scrape(original);
+  return true;
 }
 
-bool AO3SyncActivity::installDownloadedEpub(const std::string& tempPath) {
+bool AO3SyncActivity::installDownloadedEpub(const std::string& tempPath, std::string& failureMessage) {
+  failureMessage.clear();
   const std::string backupPath = bookPath_ + BACKUP_SUFFIX;
-  if (Storage.exists(backupPath.c_str()) && !Storage.remove(backupPath.c_str())) return false;
-  if (!Storage.rename(bookPath_.c_str(), backupPath.c_str())) return false;
+  Epub cacheLocator(bookPath_, "/.crosspoint");
+  const std::string cachePath = cacheLocator.getCachePath();
+  auto previousMetadata = std::unique_ptr<Ao3LibraryMetadata>(new Ao3LibraryMetadata());
+  const bool hadPreviousMetadata = Ao3Librarian::getLibraryInfo(bookPath_, *previousMetadata);
+
+  if (Storage.exists(backupPath.c_str()) && !Storage.remove(backupPath.c_str())) {
+    failureMessage = "Could not remove the previous AO3 backup";
+    LOG_ERR("AO3U", "%s: %s", failureMessage.c_str(), backupPath.c_str());
+    return false;
+  }
+  if (!Storage.rename(bookPath_.c_str(), backupPath.c_str())) {
+    failureMessage = "Could not back up the current EPUB";
+    LOG_ERR("AO3U", "%s: %s", failureMessage.c_str(), bookPath_.c_str());
+    return false;
+  }
   if (!Storage.rename(tempPath.c_str(), bookPath_.c_str())) {
-    Storage.rename(backupPath.c_str(), bookPath_.c_str());
+    const bool restored = Storage.rename(backupPath.c_str(), bookPath_.c_str());
+    failureMessage = restored ? "Could not place the downloaded EPUB"
+                              : "Could not restore the original EPUB; keep its .ao3bak file";
+    LOG_ERR("AO3U", "%s: %s", failureMessage.c_str(), bookPath_.c_str());
     return false;
   }
 
   if (!clearBookCachePreservingUserState(bookPath_)) {
-    restoreOriginalEpub(backupPath);
+    const bool restored = restoreOriginalEpub(backupPath);
+    if (hadPreviousMetadata &&
+        !writeFallbackLibraryInfo(cachePath, *previousMetadata, bookPath_, localDate_,
+                                  previousMetadata->isCompleted != 0)) {
+      LOG_ERR("AO3U", "Could not restore AO3 library metadata after cache rollback");
+    }
+    failureMessage = restored ? "Could not preserve reader data for the AO3 update"
+                              : "Could not restore the original EPUB; keep its .ao3bak file";
+    LOG_ERR("AO3U", "%s: %s", failureMessage.c_str(), cachePath.c_str());
     return false;
   }
 
-  bool accepted = false;
+  if (hadPreviousMetadata &&
+      !writeFallbackLibraryInfo(cachePath, *previousMetadata, bookPath_, remoteDate_, remoteCompleted_)) {
+    LOG_ERR("AO3U", "Could not retain the previous AO3 library metadata; a fresh scrape will be attempted");
+  }
+  previousMetadata.reset();
+
+  Storage.mkdir(cachePath.c_str());
+  Epub updated(bookPath_, "/.crosspoint");
+  updated.saveAo3Info(workId_, remoteDate_, remoteCompleted_);
+
+  Ao3ReadingStateStore::remove(cachePath);
+  BookReadingStats stats = BookReadingStats::load(cachePath);
+  stats.isCompleted = false;
+  if (!stats.finishedDateManual) stats.finishedDate = {};
+  stats.save(cachePath);
+
+  if (WiFi.getMode() != WIFI_MODE_NULL) {
+    WiFi.disconnect(false);
+    delay(30);
+    WiFi.mode(WIFI_OFF);
+  }
+
+  bool metadataRefreshed = false;
   {
     RenderLock renderLock(*this);
-    Epub updated(bookPath_, "/.crosspoint");
     GfxRenderer::FrameBufferLoan loan(renderer);
     const bool loaded = updated.load(true, true, Epub::XLocationLoadMode::Skip);
     loan.end();
     if (loaded) {
-      updated.saveAo3Info(workId_, remoteDate_, remoteCompleted_);
-      accepted = Ao3Librarian::scrape(updated);
-      if (accepted) {
-        const std::string cachePath = updated.getCachePath();
-        Ao3ReadingStateStore::remove(cachePath);
-        BookReadingStats stats = BookReadingStats::load(cachePath);
-        stats.isCompleted = false;
-        if (!stats.finishedDateManual) stats.finishedDate = {};
-        stats.save(cachePath);
-      }
+      metadataRefreshed = Ao3Librarian::scrape(updated, true);
+    } else {
+      LOG_ERR("AO3U", "Installed EPUB cache will be rebuilt when the reader opens the book");
     }
   }
 
-  if (!accepted) {
-    restoreOriginalEpub(backupPath);
-    return false;
+  if (!metadataRefreshed) {
+    LOG_ERR("AO3U", "Installed EPUB is valid, but rich AO3 metadata refresh was deferred");
   }
 
   if (!Storage.remove(backupPath.c_str())) {
@@ -483,9 +551,10 @@ void AO3SyncActivity::downloadUpdate() {
   }
   remoteDate_ = std::move(downloadedDate);
   remoteCompleted_ = downloadedCompleted;
-  if (!installDownloadedEpub(tempPath)) {
+  std::string installFailure;
+  if (!installDownloadedEpub(tempPath, installFailure)) {
     Storage.remove(tempPath.c_str());
-    setError("Could not safely install the AO3 update", true);
+    setError(installFailure.empty() ? "Could not safely install the AO3 update" : std::move(installFailure), true);
     requestUpdate();
     return;
   }

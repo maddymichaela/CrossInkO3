@@ -126,7 +126,8 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 
 | Version | Status | Highlights |
 |---|---|---|
-| `1.5.1-ao3.11.12` | Current X3 test release | Adds AvesO3's HTTP/1.1 secure-client behavior for AO3 EPUBs and fixes large authenticated OPDS feeds such as Grimmory's 50-book catalog pages. |
+| `1.5.1-ao3.11.13` | Current X3 test release | Installs validated AO3 chapter downloads without making a second memory-heavy metadata scrape safety-critical, while retaining the existing AO3 card and CrossInk reader state. |
+| `1.5.1-ao3.11.12` | Superseded test release | Adds AvesO3's HTTP/1.1 secure-client behavior for AO3 EPUBs and fixes large authenticated OPDS feeds such as Grimmory's 50-book catalog pages, but can roll back a valid chapter download when its post-install metadata scrape fails. |
 | `1.5.1-ao3.11.11` | Superseded test release | Contacts AO3's separate EPUB host directly, but still uses CrossInk's ordinary HTTPS transports, which fail on the tested X3 connection. |
 | `1.5.1-ao3.11.10` | Superseded test release | Adds EPUB metadata fallback, but still requests the download through an AO3 front domain that returns 403/525 before redirecting the X3. |
 | `1.5.1-ao3.11.9` | Superseded test release | Restores AvesO3-compatible browser headers and exposes AO3's 403 response, but cannot update public works whose HTML page is blocked. |
@@ -144,7 +145,7 @@ No AvesO3 reader engine or old CrossPoint shared files were copied wholesale. AO
 | `1.5.0-ao3.10.1` | Previous hotfix | Keeps AO3 Sort & Filter rows evenly spaced and leaves the relationship guidance visible before a fandom is selected. |
 | `1.5.0-ao3.10` | Previous feature release | Adds AO3-aware move-to-Read and restore behavior with original nested-folder preservation. |
 
-Version 10 and 11 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11.12` is the current X3/X4 test build; `ao3.11.4` remains the previous stable fallback. The `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
+Version 10 and 11 release files are retained in the `release/` folder. For an X3 or standard X4, flash the `x3-x4.bin` asset whose version matches the release you intend to install. `ao3.11.13` is the current X3/X4 test build; `ao3.11.4` remains the previous stable fallback. The `ao3.10.3` Release page is a historical transition record and intentionally has no binary.
 
 Devices running `ao3.11` or older must flash `ao3.11.1` manually once because those builds still contact the upstream CrossInk release feed. After that one-time upgrade, **Check for Firmware Updates** follows releases from this CrossInkO3 repository.
 
@@ -246,7 +247,7 @@ CrossInk runs on an ESP32-C3 with limited RAM, so very large folders or complex 
 
 The fastest way to install CrossInk is by using [Inky](https://inky.crossink.dev/#flash-tools), CrossInk's web companion app.
 
-Download the X3/X4 `.bin` from [this fork's releases](https://github.com/maddymichaela/CrossInkO3/releases), then flash it with the web installer or command line. The current boot screen should report `1.5.1-ao3.11.4`, rather than `dev+main`.
+Download the X3/X4 `.bin` from [this fork's releases](https://github.com/maddymichaela/CrossInkO3/releases), then flash it with the web installer or command line. The current test build's boot screen should report `1.5.1-ao3.11.13`, rather than `dev+main`.
 
 See [Installation](./docs/installation.md) for step-by-step flashing and revert instructions.
 

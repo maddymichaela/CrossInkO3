@@ -1,5 +1,20 @@
 ## Unreleased
 
+## [v1.5.1-ao3.11.13] - 2026-10-22
+
+### Fixed
+
+- Fixed validated AO3 EPUB downloads being rolled back when the optional post-install metadata scrape ran out of memory or could not parse the refreshed title page on X3.
+- Limited safety-critical installation failures to SD replacement and CrossInk reader-state preservation. A rich AO3 metadata refresh is now best-effort after the downloaded ZIP, work ID, and update date have already been validated.
+- Retained the existing AO3 library card across cache rebuilding and updated its work path, update date, and completion state before attempting a richer refresh. If that refresh is deferred, the next manual metadata refresh can update chapter count, word count, summary, and tags without losing the installed EPUB.
+- Released Wi-Fi before the post-install EPUB cache and metadata pass to recover network heap on X3.
+- Replaced the generic safe-install error with stage-specific messages for stale-backup cleanup, current-EPUB backup, downloaded-EPUB placement, reader-state preservation, and rollback failure.
+- Simplified rollback so it restores the original EPUB without immediately performing another memory-heavy cache rebuild and AO3 scrape.
+
+### Compatibility
+
+- No AO3 index, EPUB cache, settings, archive-origin, or reading-state format changed. No deletion or reindexing is required.
+
 ## [v1.5.1-ao3.11.12] - 2026-10-22
 
 ### Fixed
